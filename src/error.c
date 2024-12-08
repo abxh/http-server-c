@@ -32,10 +32,19 @@ void error_format_null_param_name(Error_t *error_ptr, const char *param_name)
     snprintf(error_ptr->null_param_name, sizeof error_ptr->null_param_name, "%s", param_name);
 }
 
-void error_format_location(Error_t *error_ptr, const char *funcname, const char *calleename, const uint64_t linenr,
-                           const char *filename)
-
+void error_format_location(
+    Error_t *error_ptr,
+    const char *funcname,
+    const char *calleename,
+    const uint64_t linenr,
+    const char *filename)
 {
-    snprintf(error_ptr->location, sizeof error_ptr->location, "%s() in %s() at line %" PRId64 " in file %s", funcname,
-             calleename, linenr, filename);
+    snprintf(
+        error_ptr->location,
+        sizeof error_ptr->location,
+        "%s() in %s() at line %" PRId64 " in file %s",
+        funcname,
+        calleename,
+        linenr,
+        filename);
 }

@@ -27,8 +27,12 @@ char *error_stringify(Error_t error, size_t buf_size, char *out_buf);
 
 void error_format_null_param_name(Error_t *error_ptr, const char *param_name);
 
-void error_format_location(Error_t *error_ptr, const char *funcname, const char *calleename, const uint64_t linenr,
-                           const char *filename);
+void error_format_location(
+    Error_t *error_ptr,
+    const char *funcname,
+    const char *calleename,
+    const uint64_t linenr,
+    const char *filename);
 
 #define RETURN_IF_NULL(param, ...)                         \
     do {                                                   \
