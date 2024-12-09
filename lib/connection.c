@@ -133,7 +133,7 @@ Error_t open_client_(
         .filename = filename,
         .return_value = NO_ERRORS,
     };
-    Error_t *iter_error;
+    Error_t *iter_error = NULL;
     Error_t error;
 
     error = iter_addrinfo_(

@@ -19,6 +19,10 @@ Error_t iter_addrinfo_(
     RETURN_IF_NULL(func_arg, funcname, calleename, linenr, filename);
     RETURN_IF_NULL(func, funcname, calleename, linenr, filename);
 
+    if (func_res) {
+        *func_res = NULL;
+    }
+
     struct addrinfo hints = {0};     // zero out struct addrinfo
     hints.ai_family = AF_UNSPEC;     // IPv4 / IPv6 / ...; not specified
     hints.ai_socktype = SOCK_STREAM; // TCP
