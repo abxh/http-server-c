@@ -10,6 +10,7 @@ struct print_addrinfo_args {
     const char *hostname;
     int count;
 };
+
 void *print_addrinfo(void *arg, struct addrinfo *addrinfo, const char *ipstr)
 {
     struct print_addrinfo_args *args = arg; // type pune args
@@ -25,24 +26,26 @@ void *print_addrinfo(void *arg, struct addrinfo *addrinfo, const char *ipstr)
 
 int main(int argc, char *argv[])
 {
-    if (argc != 2) {
-        fprintf(stderr, "usage: <program> hostname\n");
+    if (argc < 2) {
+        const char *program_name = (argc == 1) ? argv[0] : "<program>";
+        fprintf(stderr, "usage: %s <port>\n", program_name);
         return EXIT_FAILURE;
     }
 
-    Error_t error;
-    char error_buf[512];
-
-    struct print_addrinfo_args args;
-    args.hostname = argv[1];
-    args.count = 0;
+    char error_buf[512] = {0};
+    struct print_addrinfo_args args = {.hostname = argv[1], .count = 0};
 
     const char *port;
     void **func_res_ptr;
-    error = iter_addrinfo(argv[1], port = NULL, &args, func_res_ptr = NULL, print_addrinfo);
-
-    if (error.tag != ERROR_NONE) {
-        printf("%s\n", error_stringify(error, sizeof error_buf, error_buf));
+    const Error_t iter_error = iter_addrinfo(
+        argv[1],
+        port = NULL,         // automatically find the port
+        &args,
+        func_res_ptr = NULL, // throw the return value
+        print_addrinfo);
+    if (iter_error.tag != ERROR_NONE) {
+        printf("%s\n", error_stringify(iter_error, sizeof error_buf, error_buf));
+        return EXIT_FAILURE;
     }
 
     return EXIT_SUCCESS;

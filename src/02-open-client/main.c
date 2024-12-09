@@ -6,20 +6,30 @@
 
 int main(int argc, char *argv[])
 {
-    if (argc != 2) {
-        fprintf(stderr, "usage: <program> port\n");
+    if (argc < 2) {
+        const char *program_name = (argc == 1) ? argv[0] : "<program>";
+        fprintf(stderr, "usage: %s <port>\n", program_name);
         return EXIT_FAILURE;
     }
 
-    Error_t error;
-    char error_buf[512];
-    int client_fd;
+    const char* hostname = "localhost";
+    const char* port     = (argc > 1) ? argv[1] : 0;
 
-    error = open_client("localhost", argv[1], &client_fd);
-    if (error.tag != ERROR_NONE) {
-        printf("%s\n", error_stringify(error, sizeof error_buf, error_buf));
+    char error_buf[512] = {0};
+    int client_fd = 0;
+    int return_status = EXIT_SUCCESS;
+
+    const Error_t error_open = open_client(hostname, port, &client_fd);
+    if (error_open.tag != ERROR_NONE) {
+        printf("%s\n", error_stringify(error_open, sizeof(error_buf), error_buf));
+        return_status = EXIT_FAILURE;
     }
-    close_socket(client_fd);
 
-    return EXIT_SUCCESS;
+    const Error_t error_close = close_socket(client_fd);
+    if (error_close.tag != ERROR_NONE) {
+        printf("%s\n", error_stringify(error_close, sizeof(error_buf), error_buf));
+        return_status = EXIT_FAILURE;
+    }
+
+    return return_status;
 }
