@@ -3,6 +3,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include <netdb.h>
+#include <sys/socket.h>
+
 struct print_addrinfo_args {
     const char *hostname;
     int count;
@@ -33,7 +36,10 @@ int main(int argc, char *argv[])
     struct print_addrinfo_args args;
     args.hostname = argv[1];
     args.count = 0;
-    error = iter_addrinfo(argv[1], &args, NULL, print_addrinfo);
+
+    const char *port;
+    void **func_res_ptr;
+    error = iter_addrinfo(argv[1], port = NULL, &args, func_res_ptr = NULL, print_addrinfo);
 
     if (error.tag != ERROR_NONE) {
         printf("%s\n", error_stringify(error, sizeof error_buf, error_buf));

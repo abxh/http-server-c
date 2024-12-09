@@ -1,15 +1,17 @@
+// Following:
+// https://www.youtube.com/watch?v=2HrYIl6GpYg
+
+#include <arpa/inet.h>
+#include <assert.h>
+#include <fcntl.h>
+#include <netdb.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <assert.h>
-#include <arpa/inet.h>
-#include <sys/sendfile.h>
-#include <netdb.h>
 #include <string.h>
-#include <fcntl.h>
+#include <sys/sendfile.h>
 #include <unistd.h>
 
-
-int main(int argc, char *argv[])
+int main(void)
 {
     int domain = AF_INET;   // IPv4
     int type = SOCK_STREAM; // TCP socket
@@ -21,9 +23,9 @@ int main(int argc, char *argv[])
     struct sockaddr_in addr = {
         .sin_family = AF_INET,   // IPv4
         .sin_port = htons(8080), // in network order
-        .sin_addr = 0            // IPv4 address: localhost
+        .sin_addr = {0}          // IPv4 address: localhost
     };
-    if (bind(listen_fd, (void*)&addr, sizeof(addr)) != 0) {
+    if (bind(listen_fd, (void *)&addr, sizeof(addr)) != 0) {
         perror("bind() failed: ");
         return 1;
     }
@@ -36,12 +38,12 @@ int main(int argc, char *argv[])
 
     // GET /file.html ....
 
-    char* f = buffer + 5;
+    char *f = buffer + 5;
     *strchr(f, ' ') = '\0';
 
     int opened_fd = open(f, O_RDONLY);
 
-    long* offset = NULL;
+    long *offset = NULL;
     size_t count = 256;
     sendfile(client_fd, opened_fd, offset, count);
 
