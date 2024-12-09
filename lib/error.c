@@ -23,6 +23,9 @@ char *error_stringify(Error_t error, size_t buf_size, char *out_buf)
     case ERROR_GAI:
         snprintf(out_buf, buf_size, "%s: %s", error.location, gai_strerror(error.gai_errcode));
         break;
+    case ERROR_CUSTOM:
+        snprintf(out_buf, buf_size, "%s: %s", error.location, error.custom_msg);
+        break;
     }
     return out_buf;
 }

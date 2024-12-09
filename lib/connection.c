@@ -134,8 +134,9 @@ Error_t open_client_(
         .return_value = NO_ERRORS,
     };
     Error_t *iter_error;
+    Error_t error;
 
-    Error_t error = iter_addrinfo_(
+    error = iter_addrinfo_(
         funcname,
         calleename,
         linenr,
@@ -147,6 +148,12 @@ Error_t open_client_(
         connect_to_first_successfull);
 
     if (error.tag != ERROR_NONE) {
+        return error;
+    }
+    else if (iter_error == NULL) {
+        error_format_location(&error, funcname, calleename, linenr, filename);
+        error.tag = ERROR_CUSTOM;
+        error.custom_msg = "no available services with the given hostname";
         return error;
     }
     else if ((*iter_error).tag != ERROR_NONE) {

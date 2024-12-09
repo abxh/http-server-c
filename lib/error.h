@@ -9,6 +9,7 @@ enum ErrorTag {
     ERROR_NULL_PARAM,
     ERROR_ERRNO,
     ERROR_GAI,
+    ERROR_CUSTOM,
 };
 
 typedef struct Error {
@@ -18,6 +19,7 @@ typedef struct Error {
         int errno_num;
         int gai_errcode;
         char null_param_name[32];
+        char* custom_msg;
     };
 } Error_t;
 
