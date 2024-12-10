@@ -258,8 +258,7 @@ Error_t open_server_(
         linenr,
         filename,
         SOCK_STREAM,                // TCP
-        AI_ADDRCONFIG | AI_PASSIVE, // require that client has a valid (IPv4 / IPv6) address + fill in
-                                    // (IPv4 / IPv6) address
+        AI_ADDRCONFIG | AI_PASSIVE, // require that server has a valid (IPv4 / IPv6) address and fill that in
         hostname = NULL,            // hostname to be filled in
         port,
         &args,
