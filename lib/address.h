@@ -67,3 +67,5 @@ Error_t iter_addrinfo_(
 #define print_address(...)    print_address_("print_address", __func__, __LINE__, __FILE__, __VA_ARGS__)
 #define iter_addrinfo(...) \
     iter_addrinfo_("iter_addrinfo", __func__, __LINE__, __FILE__, SOCK_STREAM, AI_ADDRCONFIG, __VA_ARGS__)
+#define iter_addrinfo_custom(...) \
+    iter_addrinfo_("iter_addrinfo_custom", __func__, __LINE__, __FILE__, __VA_ARGS__)
