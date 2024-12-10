@@ -231,6 +231,7 @@ Error_t open_server_(
     const char *calleename,
     const uint64_t linenr,
     const char *filename,
+    const int server_type,
     const int backlog_size,
     const char *port,
     int *out_fd)
@@ -257,7 +258,7 @@ Error_t open_server_(
         calleename,
         linenr,
         filename,
-        SOCK_STREAM,                // TCP
+        server_type,
         AI_ADDRCONFIG | AI_PASSIVE, // require that server has a valid (IPv4 / IPv6) address and fill that in
         hostname = NULL,            // hostname to be filled in
         port,

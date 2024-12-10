@@ -26,8 +26,8 @@ int main(int argc, char *argv[])
     socklen_t clientaddr_size = sizeof(clientaddr);
     struct sockaddr *clientaddr_ptr = (struct sockaddr *)&clientaddr;
 
-    const int backlog_size = 1;
-    e = open_server_with_custom_backlog_size(backlog_size, port, &server_fd);
+    const int backlog = 1;
+    e = open_tcp_server_with_backlog(backlog, port, &server_fd);
     if (e.tag != ERROR_NONE) goto on_error;
 
     e = open_connection(server_fd, &conn_fd);

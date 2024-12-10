@@ -98,6 +98,7 @@ Error_t open_server_(
     const uint64_t linenr,
     const char *filename,
     // args with defaults:
+    const int server_type,  // TCP or UDP?
     const int backlog_size, // usually: max 20 incoming connection requests
     // args:
     const char *port,
@@ -126,8 +127,12 @@ Error_t open_connection_(
 #define open_generic_socket(...) \
     open_generic_socket_("open_generic_socket_", __func__, __LINE__, __FILE__, __VA_ARGS__)
 #define open_client(...) open_client_("open_client", __func__, __LINE__, __FILE__, __VA_ARGS__)
-#define open_server(...) open_server_("open_server", __func__, __LINE__, __FILE__, 20, __VA_ARGS__)
-#define open_server_with_custom_backlog_size(...) \
-    open_server_("open_server_with_custom_backlog_size", __func__, __LINE__, __FILE__, __VA_ARGS__)
-#define open_connection(...) \
-    open_connection_("open_connection", __func__, __LINE__, __FILE__, __VA_ARGS__)
+#define open_tcp_server(...) \
+    open_server_("open_tcp_server", __func__, __LINE__, __FILE__, SOCK_STREAM, 20, __VA_ARGS__)
+#define open_tcp_server_with_backlog(...) \
+    open_server_("open_tcp_server_with_backlog", __func__, __LINE__, __FILE__, SOCK_STREAM, __VA_ARGS__)
+#define open_udp_server(...) \
+    open_server_("open_udp_server", __func__, __LINE__, __FILE__, SOCK_DGRAM, 20, __VA_ARGS__)
+#define open_udp_server_with_backlog(...) \
+    open_server_("open_udp_server_with_backlog", __func__, __LINE__, __FILE__, SOCK_DGRAM, __VA_ARGS__)
+#define open_connection(...) open_connection_("open_connection", __func__, __LINE__, __FILE__, __VA_ARGS__)
