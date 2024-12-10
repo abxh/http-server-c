@@ -28,3 +28,5 @@ BreakBeforeBraces: Stroustrup
 AlignAfterOpenBracket: AlwaysBreak
 BinPackArguments: false
 BinPackParameters: false
+
+AllowShortIfStatementsOnASingleLine: "OnlyFirstIf"
