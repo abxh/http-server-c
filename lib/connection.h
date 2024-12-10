@@ -108,8 +108,6 @@ Error_t open_server_(
  * handle corresponding to the socket to the connectee.
  *
  * This socket can be used to interact with a single client.
- *
- * Note: out_client_address and out_client_address_len are either both NULL or not.
  */
 Error_t open_connection_(
     // error info:
@@ -117,9 +115,6 @@ Error_t open_connection_(
     const char *calleename,
     const uint64_t linenr,
     const char *filename,
-    // args with defaults:
-    struct sockaddr_storage *out_address,
-    socklen_t *out_address_len,
     // args:
     const int server_fd,
     int *out_fd);
@@ -135,6 +130,4 @@ Error_t open_connection_(
 #define open_server_with_custom_backlog_size(...) \
     open_server_("open_server_with_custom_backlog_size", __func__, __LINE__, __FILE__, __VA_ARGS__)
 #define open_connection(...) \
-    open_connection_("open_connection", __func__, __LINE__, __FILE__, NULL, NULL, __VA_ARGS__)
-#define open_connection_and_get_address(...) \
-    open_connection_("open_connection_and_get_address", __func__, __LINE__, __FILE__, __VA_ARGS__)
+    open_connection_("open_connection", __func__, __LINE__, __FILE__, __VA_ARGS__)

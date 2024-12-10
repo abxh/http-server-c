@@ -1,8 +1,9 @@
 
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "address_info.h"
+#include "address.h"
 #include "connection.h"
 
 int main(int argc, char *argv[])
@@ -18,19 +19,24 @@ int main(int argc, char *argv[])
     int return_status = EXIT_SUCCESS;
     char strbuf[512] = {0};
 
-    int server_fd, connection_fd;
+    int server_fd = -1;
+    int conn_fd = -1;
+
+    struct sockaddr_storage clientaddr;
+    socklen_t clientaddr_size = sizeof(clientaddr);
+    struct sockaddr *clientaddr_ptr = (struct sockaddr *)&clientaddr;
 
     const int backlog_size = 1;
     e = open_server_with_custom_backlog_size(backlog_size, port, &server_fd);
     if (e.tag != ERROR_NONE) goto on_error;
 
-    struct sockaddr_storage clientaddr;
-    socklen_t clientaddr_size = sizeof(clientaddr);
-
-    e = open_connection_and_get_address(&clientaddr, &clientaddr_size, server_fd, &connection_fd);
+    e = open_connection(server_fd, &conn_fd);
     if (e.tag != ERROR_NONE) goto on_error;
 
-    e = print_address(clientaddr.ss_family, (struct sockaddr *)&clientaddr, sizeof(strbuf), strbuf);
+    e = get_peer_address(conn_fd, &clientaddr_size, clientaddr_ptr);
+    if (e.tag != ERROR_NONE) goto on_error;
+
+    e = print_address(clientaddr.ss_family, clientaddr_ptr, sizeof(strbuf), strbuf);
     if (e.tag != ERROR_NONE) goto on_error;
     printf("In server - connected client address: %s\n", strbuf);
 

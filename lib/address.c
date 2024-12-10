@@ -1,8 +1,32 @@
-#include "address_info.h"
+#include "address.h"
 
 #include <arpa/inet.h>
 #include <errno.h>
 #include <netdb.h>
+
+Error_t get_peer_address_(
+    // error info:
+    const char *funcname,
+    const char *calleename,
+    const uint64_t linenr,
+    const char *filename,
+    // args:
+    const int fd,
+    socklen_t *addr_len,
+    struct sockaddr *out_addr)
+{
+    RETURN_IF_NULL(addr_len, funcname, calleename, linenr, filename);
+    RETURN_IF_NULL(out_addr, funcname, calleename, linenr, filename);
+
+    if (getpeername(fd, out_addr, addr_len) == -1) {
+        Error_t error;
+        error_format_location(&error, funcname, calleename, linenr, filename);
+        error.tag = ERROR_ERRNO;
+        error.errno_num = errno;
+        return error;
+    }
+    return NO_ERRORS;
+}
 
 Error_t print_address_(
     const char *funcname,
@@ -11,13 +35,14 @@ Error_t print_address_(
     const char *filename,
     const int addr_family,
     const struct sockaddr *addr,
-    const socklen_t out_buf_len,
+    const size_t out_buf_len,
     char *out_buf)
 {
     RETURN_IF_NULL(addr, funcname, calleename, linenr, filename);
     RETURN_IF_NULL(out_buf, funcname, calleename, linenr, filename);
+    *out_buf = '\0';
 
-    if (inet_ntop(addr_family, addr, out_buf, out_buf_len) == NULL) {
+    if (inet_ntop(addr_family, addr, out_buf, (socklen_t)out_buf_len) == NULL) {
         Error_t error;
         error.tag = ERROR_ERRNO;
         error.errno_num = errno;

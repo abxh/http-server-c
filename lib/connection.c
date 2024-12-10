@@ -1,5 +1,5 @@
 #include "connection.h"
-#include "address_info.h"
+#include "address.h"
 
 #include <arpa/inet.h>
 #include <asm-generic/socket.h>
@@ -112,9 +112,10 @@ Error_t open_generic_socket_(
 {
     RETURN_IF_NULL(addrinfo, funcname, calleename, linenr, filename);
     RETURN_IF_NULL(out_fd, funcname, calleename, linenr, filename);
+    *out_fd = -1;
 
     int domain, type, protocol;
-    int fd = socket(
+    const int fd = socket(
         domain = addrinfo->ai_family,    // IPv4 / IPv6 / ...
         type = addrinfo->ai_socktype,    // TCP / UDP / ...
         protocol = addrinfo->ai_protocol // HTTP / FTP / ...
@@ -127,7 +128,6 @@ Error_t open_generic_socket_(
         error.errno_num = errno;
         return error;
     }
-
     *out_fd = fd;
     return NO_ERRORS;
 }
@@ -150,7 +150,6 @@ void *get_first_successfull(void *arg, struct addrinfo *addrinfo)
     const uint64_t linenr = args->linenr;
     const char *filename = args->filename;
     int *out_fd = args->out_fd;
-    *out_fd = -1;
 
     Error_t e;
 
@@ -183,6 +182,7 @@ Error_t open_client_(
 {
     RETURN_IF_NULL(hostname, funcname, calleename, linenr, filename);
     RETURN_IF_NULL(out_fd, funcname, calleename, linenr, filename);
+    *out_fd = -1;
 
     struct get_first_successfull_args args = {
         .funcname = funcname,
@@ -237,6 +237,7 @@ Error_t open_server_(
 {
     RETURN_IF_NULL(port, funcname, calleename, linenr, filename);
     RETURN_IF_NULL(out_fd, funcname, calleename, linenr, filename);
+    *out_fd = -1;
 
     struct get_first_successfull_args args = {
         .funcname = funcname,
@@ -291,19 +292,27 @@ Error_t open_connection_(
     const char *calleename,
     const uint64_t linenr,
     const char *filename,
-    struct sockaddr_storage *out_address,
-    socklen_t *out_address_len,
     const int server_fd,
     int *out_fd)
 {
     RETURN_IF_NULL(out_fd, funcname, calleename, linenr, filename);
+    *out_fd = -1;
 
-    if (accept(server_fd, (struct sockaddr *)out_address, out_address_len) == -1) {
+    struct sockaddr *addr;
+    socklen_t *addr_len_ptr;
+    const int fd = accept(
+        server_fd,
+        addr = NULL, // the address can be retrieved later with getpeername()
+        addr_len_ptr = NULL);
+
+    if (fd == -1) {
         Error_t error;
         error_format_location(&error, funcname, calleename, linenr, filename);
         error.tag = ERROR_ERRNO;
         error.errno_num = errno;
         return error;
     }
+
+    *out_fd = fd;
     return NO_ERRORS;
 }

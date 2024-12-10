@@ -16,7 +16,7 @@ int main(int argc, char *argv[])
     const char* port     = (argc > 1) ? argv[1] : 0;
 
     char error_buf[512] = {0};
-    int client_fd = 0;
+    int client_fd = -1;
     int return_status = EXIT_SUCCESS;
 
     const Error_t error_open = open_client(hostname, port, &client_fd);

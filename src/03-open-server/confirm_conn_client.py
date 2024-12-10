@@ -2,6 +2,7 @@
 
 import socket
 import sys
+import time
 
 if (len(sys.argv) != 2):
     print(f"usage: {sys.argv[0] if len(sys.argv) > 1 else "<program>"} <port>\n")
