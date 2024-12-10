@@ -45,9 +45,14 @@ on_error:
         printf("%s\n", error_stringify(e, sizeof(strbuf), strbuf));
         return_status = EXIT_FAILURE;
     }
-    const Error_t error_close = close_socket(server_fd);
-    if (error_close.tag != ERROR_NONE) {
-        printf("%s\n", error_stringify(error_close, sizeof(strbuf), strbuf));
+    const Error_t error_close_conn = close_socket(conn_fd);
+    if (error_close_conn.tag != ERROR_NONE) {
+        printf("%s\n", error_stringify(error_close_conn, sizeof(strbuf), strbuf));
+        return_status = EXIT_FAILURE;
+    }
+    const Error_t error_close_server = close_socket(server_fd);
+    if (error_close_server.tag != ERROR_NONE) {
+        printf("%s\n", error_stringify(error_close_server, sizeof(strbuf), strbuf));
         return_status = EXIT_FAILURE;
     }
 
