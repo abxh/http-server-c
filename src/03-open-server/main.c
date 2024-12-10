@@ -34,8 +34,8 @@ int main(int argc, char *argv[])
     if (e.tag != ERROR_NONE) goto on_error;
     printf("In server - connected client address: %s\n", strbuf);
 
-on_error:
     if (e.tag != ERROR_NONE) {
+on_error:
         printf("%s\n", error_stringify(e, sizeof(strbuf), strbuf));
         return_status = EXIT_FAILURE;
     }
