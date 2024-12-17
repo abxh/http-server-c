@@ -120,7 +120,8 @@ int main(int argc, char *argv[])
 
     char msgbuf[4096] = {0};
     struct BufferedReader reader = {0};
-    buffered_reader_init(&reader, conn_fd, sizeof(msgbuf), msgbuf);
+    e = buffered_reader_init(&reader, conn_fd, sizeof(msgbuf), msgbuf);
+    if (e.tag != ERROR_NONE) goto on_error;
 
     char linebuf[1024] = {0};
     char linebuf_escaped[1024] = {0};
