@@ -1,15 +1,17 @@
 #pragma once
 
+#include <inttypes.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
 
 enum ErrorTag {
     ERROR_NONE = 0,
     ERROR_UNHANDLED,
     ERROR_NULL_PARAM,
+    ERROR_CUSTOM,
     ERROR_ERRNO,
     ERROR_GAI,
-    ERROR_CUSTOM,
 };
 
 typedef struct Error {
@@ -19,30 +21,20 @@ typedef struct Error {
         int errno_num;
         int gai_errcode;
         char null_param_name[32];
-        char* custom_msg;
+        char *custom_msg;
     };
 } Error_t;
 
+typedef struct ErrorInfo {
+    const char *funcname;
+    const char *calleename;
+    const uint64_t linenr;
+    const char *filename;
+} ErrorInfo_t;
+
 static const Error_t NO_ERRORS = {0};
 
+static const ErrorInfo_t DEFAULT_ERROR_INFO = {
+    .funcname = "<funcname>", .calleename = "<calleename>", .linenr = 0, .filename = "<filename>"};
+
 char *error_stringify(Error_t error, size_t buf_size, char *out_buf);
-
-void error_format_null_param_name(Error_t *error_ptr, const char *param_name);
-
-void error_format_location(
-    Error_t *error_ptr,
-    const char *funcname,
-    const char *calleename,
-    const uint64_t linenr,
-    const char *filename);
-
-#define RETURN_IF_NULL(param, ...)                         \
-    do {                                                   \
-        if (param == NULL) {                               \
-            Error_t error_;                                \
-            error_.tag = ERROR_NULL_PARAM;                 \
-            error_format_null_param_name(&error_, #param); \
-            error_format_location(&error_, __VA_ARGS__);   \
-            return error_;                                 \
-        }                                                  \
-    } while (0)

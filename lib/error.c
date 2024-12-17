@@ -30,24 +30,21 @@ char *error_stringify(Error_t error, size_t buf_size, char *out_buf)
     return out_buf;
 }
 
-void error_format_null_param_name(Error_t *error_ptr, const char *param_name)
+Error_t error_format_null_param_name(Error_t error, const char *param_name)
 {
-    snprintf(error_ptr->null_param_name, sizeof error_ptr->null_param_name, "%s", param_name);
+    snprintf(error.null_param_name, sizeof error.null_param_name, "%s", param_name);
+    return error;
 }
 
-void error_format_location(
-    Error_t *error_ptr,
-    const char *funcname,
-    const char *calleename,
-    const uint64_t linenr,
-    const char *filename)
+Error_t error_format_location(Error_t error, ErrorInfo_t ei)
 {
     snprintf(
-        error_ptr->location,
-        sizeof error_ptr->location,
+        error.location,
+        sizeof error.location,
         "%s() in %s() at line %" PRId64 " in file %s",
-        funcname,
-        calleename,
-        linenr,
-        filename);
+        ei.funcname,
+        ei.calleename,
+        ei.linenr,
+        ei.filename);
+    return error;
 }

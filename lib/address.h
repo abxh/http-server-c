@@ -1,71 +1,40 @@
 #pragma once
 
-#include "error.h"
+#include "error_utils.h"
 
 #include <netdb.h>
 
 /**
- * Get the address of a connected address.
+ * Get the address a socket is configured to.
  */
-Error_t get_peer_address_(
-    // error info:
-    const char *funcname,
-    const char *calleename,
-    const uint64_t linenr,
-    const char *filename,
-    // args:
-    const int fd,
-    socklen_t *addr_len,
-    struct sockaddr *out_addr);
+Error_t get_peer_address_(const ErrorInfo_t ei, const int fd, socklen_t *out_addr_len, struct sockaddr *out_addr);
 
 /**
  * Print the address.
- *
- * Note:
- * - addrinfo->ai_family or sockaddr_storage->ss_family can be used to get addr_family.
- * - addrinfo->ai_addr can be used to get addr.
- * - out_buf_len should at least be INET6_ADDRSTRLEN
  */
-Error_t print_address_(
-    // error info:
-    const char *funcname,
-    const char *calleename,
-    const uint64_t linenr,
-    const char *filename,
-    // args:
-    const int addr_family, // AF_INET (IPv4), AF_INET6 (IPv6)
-    const struct sockaddr *addr,
-    const size_t buf_len,
-    char *out_buf);
-
-typedef void *(*iter_addrinfo_f)(void *arg, struct addrinfo *addrinfo);
+Error_t print_address_(const ErrorInfo_t ei, const struct sockaddr *addr, const size_t buf_len, char *out_buf);
 
 /**
- * Iterate over possible addresses's, given a nullable hostname and port.
+ * Get an address in binary encoding.
+ */
+Error_t get_binary_addr_(const ErrorInfo_t ei, const int family, const char *src, void *out_buf);
+
+/**
+ * Iterate over possible addresses supporting TCP, given a nullable hostname and non-nullable port.
  *
  * Note:
  * - Setting func_res to NULL, ignores the function's return value.
- * - Returning NULL from iter_addrinfo_f is permitted. It continues to iterate if so.
+ * - Returning NULL from func is permitted. It continues to iterate if so.
  */
-Error_t iter_addrinfo_(
-    // error info:
-    const char *funcname,
-    const char *calleename,
-    const uint64_t linenr,
-    const char *filename,
-    // args with defaults:
-    const int socktype,
-    const int flags,
-    // args:
+Error_t iter_addrinfo_tcp_(
+    const ErrorInfo_t ei,
     const char *hostname,
     const char *port,
     void *func_arg,
     void **func_res,
-    const iter_addrinfo_f func);
+    void *(*func)(void *arg, const struct addrinfo *addrinfo));
 
-#define get_peer_address(...) get_peer_address_("get_peer_address", __func__, __LINE__, __FILE__, __VA_ARGS__)
-#define print_address(...)    print_address_("print_address", __func__, __LINE__, __FILE__, __VA_ARGS__)
-#define iter_addrinfo(...) \
-    iter_addrinfo_("iter_addrinfo", __func__, __LINE__, __FILE__, SOCK_STREAM, AI_ADDRCONFIG, __VA_ARGS__)
-#define iter_addrinfo_custom(...) \
-    iter_addrinfo_("iter_addrinfo_custom", __func__, __LINE__, __FILE__, __VA_ARGS__)
+#define get_peer_address(...)       get_peer_address_(ERROR_INFO("get_peer_address"), __VA_ARGS__)
+#define conv_to_binary_address(...) conv_to_binary_address_(ERROR_INFO("conv_to_binary_address"), __VA_ARGS__)
+#define print_address(...)          print_address_(ERROR_INFO("print_address"), __VA_ARGS__)
+#define iter_addrinfo_tcp(...)      iter_addrinfo_tcp_(ERROR_INFO("iter_addrinfo_tcp"), __VA_ARGS__)

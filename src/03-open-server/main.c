@@ -5,6 +5,7 @@
 
 #include "address.h"
 #include "connection.h"
+#include "connection_tcp.h"
 
 int main(int argc, char *argv[])
 {
@@ -15,7 +16,7 @@ int main(int argc, char *argv[])
     }
     const char *port = (argc > 1) ? argv[1] : 0;
 
-    Error_t e;
+    Error_t e = NO_ERRORS;
     int return_status = EXIT_SUCCESS;
     char strbuf[512] = {0};
 
@@ -27,17 +28,19 @@ int main(int argc, char *argv[])
     struct sockaddr *clientaddr_ptr = (struct sockaddr *)&clientaddr;
 
     const int backlog = 1;
+
     e = open_tcp_server_with_backlog(backlog, port, &server_fd);
     if (e.tag != ERROR_NONE) goto on_error;
 
-    e = open_connection(server_fd, &conn_fd);
+    e = open_tcp_client_connection(server_fd, &conn_fd);
     if (e.tag != ERROR_NONE) goto on_error;
 
     e = get_peer_address(conn_fd, &clientaddr_size, clientaddr_ptr);
     if (e.tag != ERROR_NONE) goto on_error;
 
-    e = print_address(clientaddr.ss_family, clientaddr_ptr, sizeof(strbuf), strbuf);
+    e = print_address(clientaddr_ptr, sizeof(strbuf), strbuf);
     if (e.tag != ERROR_NONE) goto on_error;
+
     printf("In server - connected client address: %s\n", strbuf);
 
 on_error:
@@ -45,6 +48,7 @@ on_error:
         printf("%s\n", error_stringify(e, sizeof(strbuf), strbuf));
         return_status = EXIT_FAILURE;
     }
+
     const Error_t error_close_conn = close_socket(conn_fd);
     if (error_close_conn.tag != ERROR_NONE) {
         printf("%s\n", error_stringify(error_close_conn, sizeof(strbuf), strbuf));
