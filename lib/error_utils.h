@@ -2,6 +2,8 @@
 
 #include "error.h"
 
+#include <inttypes.h>
+
 static inline Error_t error_format_null_param_name(Error_t error, const char *param_name)
 {
     snprintf(error.null_param_name, sizeof error.null_param_name, "%s", param_name);
