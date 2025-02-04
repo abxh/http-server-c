@@ -10,6 +10,7 @@
 #include <unistd.h>
 
 // based on:
+// https://beej.us/guide/bgnet/
 // https://csapp.cs.cmu.edu/3e/ics3/code/src/csapp.c
 
 struct get_first_successfull_args {
@@ -147,24 +148,17 @@ bytes_sendall_(const ErrorInfo_t ei, const int flags, const int conn_fd, const s
     return NO_ERRORS;
 }
 
-Error_t buffered_reader_init_(
-    const ErrorInfo_t ei,
-    const int recv_flags,
-    struct BufferedReader *reader,
-    const int conn_fd,
-    const size_t max_msg_len,
-    char *msgbuf)
+void buffered_reader_init_(
+    const int recv_flags, struct BufferedReader *reader, const int conn_fd, const size_t max_msg_len, char *msgbuf)
 {
-    RETURN_IF_NULL(ei, reader);
-    RETURN_IF_NULL(ei, msgbuf);
+    assert(reader);
+    assert(msgbuf);
 
     reader->max_msg_len = max_msg_len;
     reader->msgbuf = reader->curr = &msgbuf[0];
     reader->conn_fd = conn_fd;
     reader->recv_flags = recv_flags;
     reader->nleft = 0;
-
-    return NO_ERRORS;
 }
 
 void buffered_reader_flush(struct BufferedReader *reader)

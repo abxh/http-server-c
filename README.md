@@ -2,6 +2,12 @@
 
 Is made in linux in mind.
 
+## Clone steps
+```bash
+git clone --depth=1 --recurse-submodules
+
+```
+
 ## Build steps
 ```bash
 mkdir build
