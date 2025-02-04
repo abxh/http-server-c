@@ -37,13 +37,8 @@ struct BufferedReader {
 /**
  * Intiate struct for buffered reading. msgbuf should be able to contain the largest possible message.
  */
-Error_t buffered_reader_init_(
-    const ErrorInfo_t ei,
-    const int recv_flags,
-    struct BufferedReader *reader,
-    const int conn_fd,
-    const size_t max_msg_len,
-    char *msgbuf);
+void buffered_reader_init_(
+    const int recv_flags, struct BufferedReader *reader, const int conn_fd, const size_t max_msg_len, char *msgbuf);
 
 /**
  * Flush the current the stream of bytes.
@@ -67,6 +62,6 @@ Error_t bytes_recvline_(
 #define open_tcp_server_with_backlog(...) open_tcp_server_(ERROR_INFO("open_tcp_server"), __VA_ARGS__)
 #define open_tcp_client_connection(...)   open_tcp_client_connection_(ERROR_INFO("open_client_connection"), __VA_ARGS__)
 #define bytes_sendall(...)                bytes_sendall_(ERROR_INFO("bytes_sendall"), 0, __VA_ARGS__)
-#define buffered_reader_init(...)         buffered_reader_init_(ERROR_INFO("init_buffered_reader"), 0, __VA_ARGS__)
 #define bytes_recvn(...)                  bytes_recvn_(ERROR_INFO("bytes_recvn"), __VA_ARGS__)
 #define bytes_recvline(...)               bytes_recvline_(ERROR_INFO("bytes_recvline"), __VA_ARGS__)
+#define buffered_reader_init(...)         buffered_reader_init_(0, __VA_ARGS__)
