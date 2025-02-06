@@ -1,3 +1,6 @@
 [submodule "external/STC"]
 	path = external/STC
 	url = https://github.com/stclib/STC
+[submodule "external/dsa-c"]
+	path = external/dsa-c
+	url = https://github.com/abxh/dsa-c
