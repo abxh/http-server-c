@@ -1,38 +1,37 @@
 #pragma once
 
 #include "error.h"
-#include "error_utils.h"
 
 #include "stc/csview.h"
 
-#include "fnvhash.h"
-#define NAME               headers_htable
-#define KEY_TYPE           const char *
-#define VALUE_TYPE         csview
-#define KEY_IS_EQUAL(a, b) (strcmp((a), (b)->buf) == 0)
-#define HASH_FUNCTION(key) (fnvhash_32_str(key))
-#define TYPE_DEFINITIONS
-#define FUNCTION_DEFINITIONS
-#define FUNCTION_LINKAGE static inline
-#include "fhashtable_template.h"
-
-struct tokenized_request {
+struct request_line {
+    csview method;
+    csview url;
     csview protocol_name;
-    csview protocol_ver;
-    csview status_code;
-    csview status_text;
-    csview headers;
-    csview body;
+    csview protocol_version;
 };
 
-Error_t tokenize_request_(
-    const ErrorInfo_t ei,
-    const size_t max_buf_len,
-    const char *buf,
-    struct tokenized_request *out_req,
-    struct headers_htable *out_headers);
+struct header {
+    csview field_name;
+    csview field_value;
+};
 
-Error_t handle_request_(const ErrorInfo_t ei, const int conn_fd, struct tokenized_request *req, struct headers_htable *headers);
+extern const char RESPONSE_200_OK[];
+extern const char RESPONSE_400_BAD_REQUEST[];
+extern const char RESPONSE_403_FORBIDDEN[];
+extern const char RESPONSE_404_NOT_FOUND[];
+extern const char RESPONSE_500_INTERNAL_SERVER_ERROR[];
+extern const char RESPONSE_501_NOT_IMPLEMENTED[];
 
-#define parse_request(...)  parse_request_(ERROR_INFO("parse_request"), __VA_ARGS__)
-#define handle_request(...) handle_request_(ERROR_INFO("handle_request"), __VA_ARGS__)
+/**
+ * Tokenize request line
+ */
+Error_t tokenize_request_line_(const ErrorInfo_t ei, const size_t line_len, const char *line, struct request_line *out);
+
+/**
+ * Tokenize request header
+ */
+Error_t tokenize_header_(const ErrorInfo_t ei, const size_t line_len, const char *line, struct header *out);
+
+#define tokenize_request_line(...) tokenize_request_line_(ERROR_INFO("tokenize_request_line"), __VA_ARGS__)
+#define tokenize_header(...) tokenize_header_(ERROR_INFO("tokenize_header"), __VA_ARGS__)

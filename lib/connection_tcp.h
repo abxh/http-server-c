@@ -1,6 +1,6 @@
 #pragma once
 
-#include "error_utils.h"
+#include "error.h"
 
 #include <stdbool.h>
 
@@ -25,13 +25,16 @@ Error_t open_tcp_client_connection_(const ErrorInfo_t ei, const int server_fd, i
 Error_t
 bytes_sendall_(const ErrorInfo_t ei, const int flags, const int conn_fd, const size_t nbytes, const char *inp_buf);
 
+/**
+ * Buffered reader
+ */
 struct BufferedReader {
-    size_t max_msg_len;
-    size_t nleft;
-    char *msgbuf;
-    char *curr;
-    int conn_fd;
-    int recv_flags;
+    size_t max_msg_len; ///< max message length
+    size_t nleft;       ///< number of bytes to read left
+    char *msgbuf;       ///< underlying message buffer
+    char *curr;         ///< current pointer in message buffer
+    int conn_fd;        ///< connection socket file handle
+    int recv_flags;     ///< connection flags
 };
 
 /**
@@ -59,9 +62,10 @@ Error_t bytes_recvline_(
 
 #define open_tcp_client(...)              open_tcp_client_(ERROR_INFO("open_tcp_client"), __VA_ARGS__)
 #define open_tcp_server(...)              open_tcp_server_(ERROR_INFO("open_tcp_server"), 20, __VA_ARGS__)
-#define open_tcp_server_with_backlog(...) open_tcp_server_(ERROR_INFO("open_tcp_server"), __VA_ARGS__)
-#define open_tcp_client_connection(...)   open_tcp_client_connection_(ERROR_INFO("open_client_connection"), __VA_ARGS__)
-#define bytes_sendall(...)                bytes_sendall_(ERROR_INFO("bytes_sendall"), 0, __VA_ARGS__)
-#define bytes_recvn(...)                  bytes_recvn_(ERROR_INFO("bytes_recvn"), __VA_ARGS__)
-#define bytes_recvline(...)               bytes_recvline_(ERROR_INFO("bytes_recvline"), __VA_ARGS__)
-#define buffered_reader_init(...)         buffered_reader_init_(0, __VA_ARGS__)
+#define open_tcp_server_with_backlog(...) open_tcp_server_(ERROR_INFO("open_tcp_server_with_backlog"), __VA_ARGS__)
+#define open_tcp_client_connection(...) \
+    open_tcp_client_connection_(ERROR_INFO("open_tcp_client_connection"), __VA_ARGS__)
+#define bytes_sendall(...)        bytes_sendall_(ERROR_INFO("bytes_sendall"), 0, __VA_ARGS__)
+#define bytes_recvn(...)          bytes_recvn_(ERROR_INFO("bytes_recvn"), __VA_ARGS__)
+#define bytes_recvline(...)       bytes_recvline_(ERROR_INFO("bytes_recvline"), __VA_ARGS__)
+#define buffered_reader_init(...) buffered_reader_init_(0, __VA_ARGS__)

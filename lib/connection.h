@@ -1,6 +1,6 @@
 #pragma once
 
-#include "error_utils.h"
+#include "error.h"
 
 #include <netdb.h>
 

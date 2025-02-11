@@ -8,6 +8,7 @@
 
 #include "connection.h"
 #include "connection_tcp.h"
+#include "http_server.h"
 
 // some help:
 // https://stackoverflow.com/questions/22077802/simple-c-example-of-doing-an-http-post-and-consuming-the-response
@@ -90,12 +91,6 @@ void str_cstrlit(const char *str, char *buffer, size_t buflen)
     *buffer = '\0';
 }
 
-const char dummy_msg[] = "HTTP/1.1 200 OK\r\n"
-                         "Content-Type: text/plain\r\n"
-                         "Content-Length: 17\r\n"
-                         "\r\n"
-                         "Hello Web from C!";
-
 int main(int argc, char *argv[])
 {
     if (argc < 2) {
@@ -135,7 +130,7 @@ int main(int argc, char *argv[])
     printf("\n");
 
     printf("Sending response:\n");
-    char *dup = strdup(dummy_msg);
+    char *dup = strdup(RESPONSE_200_OK);
     char *ptr = dup, *end = dup;
     while (ptr != NULL) {
         strsep(&end, "\n");
@@ -145,7 +140,7 @@ int main(int argc, char *argv[])
     }
     free(dup);
 
-    e = bytes_sendall(conn_fd, sizeof(dummy_msg), dummy_msg);
+    e = bytes_sendall(conn_fd, strlen(RESPONSE_200_OK), RESPONSE_200_OK);
     if (e.tag != ERROR_NONE) goto on_error;
 
 on_error:
