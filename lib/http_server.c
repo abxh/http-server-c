@@ -14,7 +14,7 @@ const char RESPONSE_403_FORBIDDEN[] = "HTTP/1.0 403 Forbidden\r\n"
                                       "Content-Type: text/html\r\n"
                                       "Content-Length: 0\r\n"
                                       "\r\n";
-const char RESPONSE_403_FORBIDDEn[] = "HTTP/1.0 404 Not Found\r\n"
+const char RESPONSE_403_FORBIDDEN[] = "HTTP/1.0 404 Not Found\r\n"
                                       "Content-Type: text/html\r\n"
                                       "Content-Length: 0\r\n"
                                       "\r\n";
