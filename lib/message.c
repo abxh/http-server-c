@@ -1,33 +1,17 @@
+// TODO:
+// - strip response header values of spaces
+// ...
 
-#include "http_server.h"
+#include "message.h"
 
-const char RESPONSE_200_OK[] = "HTTP/1.0 200 OK\r\n"
-                               "Content-Type: text/plain\r\n"
-                               "Content-Length: 17\r\n"
-                               "\r\n"
-                               "Hello Web from C!";
-const char RESPONSE_400_BAD_REQUEST[] = "HTTP/1.0 400 Bad Request\r\n"
-                                        "Content-Type: text/html\r\n"
-                                        "Content-Length: 0\r\n"
-                                        "\r\n";
-const char RESPONSE_403_FORBIDDEN[] = "HTTP/1.0 403 Forbidden\r\n"
-                                      "Content-Type: text/html\r\n"
-                                      "Content-Length: 0\r\n"
-                                      "\r\n";
-const char RESPONSE_403_FORBIDDEN[] = "HTTP/1.0 404 Not Found\r\n"
-                                      "Content-Type: text/html\r\n"
-                                      "Content-Length: 0\r\n"
-                                      "\r\n";
-const char RESPONSE_500_INTERNAL_SERVER_ERROR[] = "HTTP/1.0 500 Internal Server Error\r\n"
-                                                  "Content-Type: text/html\r\n"
-                                                  "Content-Length: 0\r\n"
-                                                  "\r\n";
-const char RESPONSE_501_NOT_IMPLEMENTED[] = "HTTP/1.0 501 Not Implemented\r\n"
-                                            "Content-Type: text/html\r\n"
-                                            "Content-Length: 0\r\n"
-                                            "\r\n";
+#include <stdalign.h>
+#include <ctype.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <string.h>
 
-Error_t tokenize_request_line_(const ErrorInfo_t ei, const size_t line_len, const char *line, struct request_line *out)
+Error_t tokenize_request_line_(const ErrorInfo_t ei, const size_t line_len, const char *line, struct RequestLine *out)
 {
     RETURN_IF_NULL(ei, line);
     RETURN_IF_NULL(ei, out);
@@ -79,7 +63,7 @@ Error_t tokenize_request_line_(const ErrorInfo_t ei, const size_t line_len, cons
     return NO_ERRORS;
 }
 
-Error_t tokenize_header_(const ErrorInfo_t ei, const size_t line_len, const char *line, struct header *out)
+Error_t tokenize_header_(const ErrorInfo_t ei, const size_t line_len, const char *line, struct HTTPHeader *out)
 {
     RETURN_IF_NULL(ei, line);
     RETURN_IF_NULL(ei, out);
@@ -126,6 +110,116 @@ Error_t tokenize_header_(const ErrorInfo_t ei, const size_t line_len, const char
     out->field_name  = csview_with_n(line, COLON - line);
     out->field_value = csview_with_n(COLON + 1, CLRS - (COLON + 1));
     // clang-format on
+
+    return NO_ERRORS;
+}
+
+Error_t assemble_response_(
+    const ErrorInfo_t ei,
+    void *allocator_context,
+    void *(*allocate)(void *context, size_t alignment, size_t size),
+    const struct Response *in,
+    size_t *out_buf_len,
+    char **out_buf)
+{
+    RETURN_IF_NULL(ei, allocate);
+    RETURN_IF_NULL(ei, in);
+    RETURN_IF_NULL(ei, out_buf);
+
+    /*
+        6.1 Status-Line
+
+       The first line of a Response message is the Status-Line, consisting
+       of the protocol version followed by a numeric status code and its
+       associated textual phrase, with each element separated by SP
+       characters. No CR or LF is allowed except in the final CRLF sequence.
+
+           Status-Line = HTTP-Version SP Status-Code SP Reason-Phrase CRLF
+    */
+
+    /*
+         HTTP-Version   = "HTTP" "/" 1*DIGIT "." 1*DIGIT
+    */
+    bool a1 = isdigit(in->status.http_version.buf[0]);
+    bool a2 = in->status.http_version.buf[1] == '.';
+    bool a3 = isdigit(in->status.http_version.buf[2]);
+    if (in->status.http_version.size != 3 || !a1 || !a2 || !a3) {
+        return error_format_location(
+            ei,
+            (Error_t){
+                .tag = ERROR_CUSTOM,
+                .custom_msg =
+                    "http-version must be of the form <major>.<minor> with <major> and <minor> as single digits."});
+    }
+
+    bool b1 = isdigit(in->status.status_code.buf[0]);
+    bool b2 = isdigit(in->status.status_code.buf[1]);
+    bool b3 = isdigit(in->status.status_code.buf[2]);
+    if (in->status.status_code.size != 3 || !b1 || !b2 || !b3) {
+        return error_format_location(
+            ei, (Error_t){.tag = ERROR_CUSTOM, .custom_msg = "status code must be a 3-digit integer"});
+    }
+
+    size_t size = 0;
+    size += sizeof("HTTP/X.X XXX ") - 1;
+    size += (size_t)in->status.status_desc.size;
+    size += 2; // CLRS
+    {
+        csview key;
+        csview value;
+
+        size_t idx;
+        FHASHTABLE_FOR_EACH(in->headers, idx, key, value)
+        {
+            size += (size_t)key.size;
+            size += 2; // ": "
+            size += (size_t)value.size;
+            size += 2; // CRLS
+        }
+    }
+    size += 2; // CRLS
+    size += (size_t)in->body.size;
+
+    *out_buf = (char *)allocate(allocator_context, alignof(char), sizeof(char) * size);
+    *out_buf_len = size;
+
+    if (out_buf == NULL) {
+        return error_format_location(ei, (Error_t){.tag = ERROR_ERRNO, .errno_num = 12});
+    }
+
+    size_t buf_idx = 0;
+    snprintf(
+        &(*out_buf)[buf_idx],
+        size,
+        "HTTP/%2s %3s %s\r\n",
+        in->status.http_version.buf,
+        in->status.status_code.buf,
+        in->status.status_desc.buf);
+
+    buf_idx += sizeof("HTTP/X.X XXX ") - 1;
+    buf_idx += (size_t)in->status.status_desc.size;
+    buf_idx += 2; // CLRS
+
+    {
+        csview key;
+        csview value;
+
+        size_t idx;
+        FHASHTABLE_FOR_EACH(in->headers, idx, key, value)
+        {
+            snprintf(&(*out_buf)[buf_idx], size, "%s: %s\r\n", key.buf, value.buf);
+
+            buf_idx += (size_t)key.size;
+            buf_idx += 2; // ": "
+            buf_idx += (size_t)value.size;
+            buf_idx += 2; // CRLS
+        }
+    }
+
+    snprintf(&(*out_buf)[buf_idx], size, "\r\n");
+    buf_idx += 2; // CRLS
+
+    memcpy(&(*out_buf)[buf_idx], in->body.buf, (size_t)in->body.size);
 
     return NO_ERRORS;
 }

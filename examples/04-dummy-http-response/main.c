@@ -8,7 +8,12 @@
 
 #include "connection.h"
 #include "connection_tcp.h"
-#include "http_server.h"
+
+const char RESPONSE_200_OK[] = "HTTP/1.0 200 OK\r\n"
+                               "Content-Type: text/plain\r\n"
+                               "Content-Length: 17\r\n"
+                               "\r\n"
+                               "Hello Web from C!";
 
 // some help:
 // https://stackoverflow.com/questions/22077802/simple-c-example-of-doing-an-http-post-and-consuming-the-response

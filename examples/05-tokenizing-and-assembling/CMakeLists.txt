@@ -1,4 +1,4 @@
-set(NAME 05-tokenize-http-request)
+set(NAME 05-tokenizing-and-assembling)
 
 add_executable (${NAME} main.c)
 
