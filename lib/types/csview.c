@@ -1,2 +1,2 @@
 #define i_implement
-#include "stc/csview.h"
+#include <STC/include/stc/csview.h>

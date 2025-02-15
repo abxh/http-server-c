@@ -6,6 +6,7 @@
 #include <errno.h>
 #include <netdb.h>
 #include <string.h>
+#include <sys/sendfile.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
@@ -145,6 +146,17 @@ bytes_sendall_(const ErrorInfo_t ei, const int flags, const int conn_fd, const s
         ptr += (size_t)retval;
     } while (nleft > 0);
 
+    return NO_ERRORS;
+}
+
+/**
+ * Send a file
+ */
+Error_t bytes_sendfile_(const ErrorInfo_t ei, size_t buf_size, const int conn_fd, const int file_fd)
+{
+    if (sendfile(conn_fd, file_fd, NULL, buf_size) == -1) {
+        return error_format_location(ei, (Error_t){.tag = ERROR_ERRNO, .errno_num = errno});
+    }
     return NO_ERRORS;
 }
 

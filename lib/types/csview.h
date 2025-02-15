@@ -1,3 +1,3 @@
 #pragma once
 
-#include "stc/csview.h"
+#include <STC/include/stc/csview.h>
