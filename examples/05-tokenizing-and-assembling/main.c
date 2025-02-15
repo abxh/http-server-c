@@ -50,8 +50,7 @@ int main(int argc, char *argv[])
 
     struct RequestLine request_line = {0};
     e = tokenize_request_line(line_len, linebuf, &request_line);
-
-    // check e
+    if (e.tag != ERROR_NONE) goto on_error; // should ideally send a error response to user here
 
     cstr response_body = cstr_init();
     cstr_append(&response_body, "request structure:\n");
