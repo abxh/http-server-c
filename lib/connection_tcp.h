@@ -28,7 +28,7 @@ bytes_sendall_(const ErrorInfo_t ei, const int flags, const int conn_fd, const s
 /**
  * Send a file
  */
-Error_t bytes_sendfile_(const ErrorInfo_t ei, size_t buf_size, const int conn_fd, const int file_fd);
+Error_t bytes_sendfile_(const ErrorInfo_t ei, const int conn_fd, const int file_fd, size_t max_file_size);
 
 /**
  * Buffered reader
@@ -71,7 +71,7 @@ Error_t bytes_recvline_(
 #define open_tcp_client_connection(...) \
     open_tcp_client_connection_(ERROR_INFO("open_tcp_client_connection"), __VA_ARGS__)
 #define bytes_sendall(...)        bytes_sendall_(ERROR_INFO("bytes_sendall"), 0, __VA_ARGS__)
-#define bytes_sendfile(...)       bytes_sendfile_(ERROR_INFO("bytes_sendfile"), 4096, __VA_ARGS__)
+#define bytes_sendfile(...)       bytes_sendfile_(ERROR_INFO("bytes_sendfile"), __VA_ARGS__)
 #define bytes_recvn(...)          bytes_recvn_(ERROR_INFO("bytes_recvn"), __VA_ARGS__)
 #define bytes_recvline(...)       bytes_recvline_(ERROR_INFO("bytes_recvline"), __VA_ARGS__)
 #define buffered_reader_init(...) buffered_reader_init_(0, __VA_ARGS__)

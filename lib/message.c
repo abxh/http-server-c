@@ -1,11 +1,7 @@
-// TODO:
-// - strip response header values of spaces
-// ...
-
 #include "message.h"
 
-#include <stdalign.h>
 #include <ctype.h>
+#include <stdalign.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -96,6 +92,10 @@ Error_t tokenize_header_(const ErrorInfo_t ei, const size_t line_len, const char
         return error_format_location(ei, (Error_t){.tag = ERROR_CUSTOM, .custom_msg = "missing : delimiter in header"});
     }
 
+    while (*(COLON + 1) == ' ') {
+        COLON += 1;
+    }
+
     const char *CLRS = strstr(COLON + 1, "\r\n");
     if (!CLRS) {
         return error_format_location(
@@ -114,16 +114,17 @@ Error_t tokenize_header_(const ErrorInfo_t ei, const size_t line_len, const char
     return NO_ERRORS;
 }
 
-Error_t assemble_response_(
+Error_t assemble_response_header_(
     const ErrorInfo_t ei,
     void *allocator_context,
     void *(*allocate)(void *context, size_t alignment, size_t size),
-    const struct Response *in,
+    struct StatusLine status,
+    struct csview_htable *headers,
     size_t *out_buf_len,
     char **out_buf)
 {
     RETURN_IF_NULL(ei, allocate);
-    RETURN_IF_NULL(ei, in);
+    RETURN_IF_NULL(ei, headers);
     RETURN_IF_NULL(ei, out_buf);
 
     /*
@@ -140,10 +141,10 @@ Error_t assemble_response_(
     /*
          HTTP-Version   = "HTTP" "/" 1*DIGIT "." 1*DIGIT
     */
-    bool a1 = isdigit(in->status.http_version.buf[0]);
-    bool a2 = in->status.http_version.buf[1] == '.';
-    bool a3 = isdigit(in->status.http_version.buf[2]);
-    if (in->status.http_version.size != 3 || !a1 || !a2 || !a3) {
+    bool a1 = isdigit(status.http_version.buf[0]);
+    bool a2 = status.http_version.buf[1] == '.';
+    bool a3 = isdigit(status.http_version.buf[2]);
+    if (status.http_version.size != 3 || !a1 || !a2 || !a3) {
         return error_format_location(
             ei,
             (Error_t){
@@ -152,52 +153,52 @@ Error_t assemble_response_(
                     "http-version must be of the form <major>.<minor> with <major> and <minor> as single digits."});
     }
 
-    bool b1 = isdigit(in->status.status_code.buf[0]);
-    bool b2 = isdigit(in->status.status_code.buf[1]);
-    bool b3 = isdigit(in->status.status_code.buf[2]);
-    if (in->status.status_code.size != 3 || !b1 || !b2 || !b3) {
+    bool b1 = isdigit(status.status_code.buf[0]);
+    bool b2 = isdigit(status.status_code.buf[1]);
+    bool b3 = isdigit(status.status_code.buf[2]);
+    if (status.status_code.size != 3 || !b1 || !b2 || !b3) {
         return error_format_location(
             ei, (Error_t){.tag = ERROR_CUSTOM, .custom_msg = "status code must be a 3-digit integer"});
     }
 
-    size_t size = 0;
-    size += sizeof("HTTP/X.X XXX ") - 1;
-    size += (size_t)in->status.status_desc.size;
-    size += 2; // CLRS
+    size_t len = 0;
+    len += sizeof("HTTP/X.X XXX ") - 1;
+    len += (size_t)status.status_desc.size;
+    len += 2; // CLRS
     {
         csview key;
         csview value;
 
         size_t idx;
-        FHASHTABLE_FOR_EACH(in->headers, idx, key, value)
+        FHASHTABLE_FOR_EACH(headers, idx, key, value)
         {
-            size += (size_t)key.size;
-            size += 2; // ": "
-            size += (size_t)value.size;
-            size += 2; // CRLS
+            len += (size_t)key.size;
+            len += 2; // ": "
+            len += (size_t)value.size;
+            len += 2; // CRLS
         }
     }
-    size += 2; // CRLS
-    size += (size_t)in->body.size;
+    len += 2; // CRLS
 
-    *out_buf = (char *)allocate(allocator_context, alignof(char), sizeof(char) * size);
-    *out_buf_len = size;
+    *out_buf = (char *)allocate(
+        allocator_context, alignof(char), sizeof(char) * (len + 1)); // +1 for c str functions printing '\0'
+    *out_buf_len = len;
 
     if (out_buf == NULL) {
-        return error_format_location(ei, (Error_t){.tag = ERROR_ERRNO, .errno_num = 12});
+        return error_format_location(ei, (Error_t){.tag = ERROR_ERRNO, .errno_num = 12}); // OOM errno
     }
 
     size_t buf_idx = 0;
     snprintf(
         &(*out_buf)[buf_idx],
-        size,
+        len,
         "HTTP/%2s %3s %s\r\n",
-        in->status.http_version.buf,
-        in->status.status_code.buf,
-        in->status.status_desc.buf);
+        status.http_version.buf,
+        status.status_code.buf,
+        status.status_desc.buf);
 
     buf_idx += sizeof("HTTP/X.X XXX ") - 1;
-    buf_idx += (size_t)in->status.status_desc.size;
+    buf_idx += (size_t)status.status_desc.size;
     buf_idx += 2; // CLRS
 
     {
@@ -205,9 +206,9 @@ Error_t assemble_response_(
         csview value;
 
         size_t idx;
-        FHASHTABLE_FOR_EACH(in->headers, idx, key, value)
+        FHASHTABLE_FOR_EACH(headers, idx, key, value)
         {
-            snprintf(&(*out_buf)[buf_idx], size, "%s: %s\r\n", key.buf, value.buf);
+            snprintf(&(*out_buf)[buf_idx], len, "%s: %s\r\n", key.buf, value.buf);
 
             buf_idx += (size_t)key.size;
             buf_idx += 2; // ": "
@@ -216,10 +217,7 @@ Error_t assemble_response_(
         }
     }
 
-    snprintf(&(*out_buf)[buf_idx], size, "\r\n");
-    buf_idx += 2; // CRLS
-
-    memcpy(&(*out_buf)[buf_idx], in->body.buf, (size_t)in->body.size);
+    snprintf(&(*out_buf)[buf_idx], len, "\r\n");
 
     return NO_ERRORS;
 }

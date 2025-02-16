@@ -1,5 +1,4 @@
 
-#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -24,15 +23,15 @@ int main(int argc, char *argv[])
 
     Error_t e = NO_ERRORS;
     int return_status = EXIT_SUCCESS;
-    char strbuf[512] = {0};
+    char error_strbuf[512] = {0};
 
     int server_fd = -1;
     int conn_fd = -1;
 
     struct csview_htable *headers = csview_htable_create(2);
 
-    size_t response_str_len = 0;
-    char *response_str = NULL;
+    size_t response_header_str_len = 0;
+    char *response_header_str = NULL;
 
     char msgbuf[4096] = {0};
     char linebuf[1024] = {0};
@@ -74,11 +73,14 @@ int main(int argc, char *argv[])
             e = bytes_recvline(&reader, sizeof(linebuf), linebuf, &line_len);
             if (e.tag != ERROR_NONE) goto on_error;
 
-            struct HTTPHeader header = {0};
-            e = tokenize_header(line_len, linebuf, &header);
             if (line_len <= 2) {
                 break;
             }
+
+            struct HTTPHeader header = {0};
+            e = tokenize_header(line_len, linebuf, &header);
+            if (e.tag != ERROR_NONE) goto on_error;
+
             // clang-format off
             cstr_append_fmt( &response_body, " - header field(%.*s)\n",
                             (int)header.field_name.size, header.field_name.buf);
@@ -93,31 +95,24 @@ int main(int argc, char *argv[])
         csview_htable_update(headers, c_sv("Content-Type"), c_sv("text/plain"));
         csview_htable_update(headers, c_sv("Content-Length"), csview_from(cstr_str(&content_length_str)));
 
-        // clang-format off
         struct StatusLine status = {
-            .http_version = csview_from("1.0"),
-            .status_code = csview_from("200"),
-            .status_desc = csview_from("OK")
-        };
-        struct Response response = {
-            .status = status,
-            .headers = headers,
-            .body = csview_from(cstr_str(&response_body))
-        };
-        // clang-format on
-
-        e = assemble_response(&response, &response_str_len, &response_str);
+            .http_version = csview_from("1.0"), .status_code = csview_from("200"), .status_desc = csview_from("OK")};
+        e = assemble_response_header(status, headers, &response_header_str_len, &response_header_str);
         if (e.tag != ERROR_NONE) goto on_error;
 
-        e = bytes_sendall(conn_fd, response_str_len, response_str);
+        e = bytes_sendall(conn_fd, response_header_str_len, response_header_str);
+        if (e.tag != ERROR_NONE) goto on_error;
+
+        e = bytes_sendall(conn_fd, (size_t)cstr_size(&response_body), cstr_str(&response_body));
         if (e.tag != ERROR_NONE) goto on_error;
 
         cstr_clear(&response_body);
         cstr_clear(&content_length_str);
         csview_htable_clear(headers);
+        buffered_reader_flush(&reader);
 
-        free(response_str);
-        response_str = NULL;
+        free(response_header_str);
+        response_header_str = NULL;
 
         e = close_socket(conn_fd);
         if (e.tag != ERROR_NONE) goto on_error;
@@ -127,24 +122,24 @@ on_error:
     cstr_drop(&response_body);
     cstr_drop(&content_length_str);
     csview_htable_destroy(headers);
-    if (response_str != NULL) {
-        free(response_str);
+    if (response_header_str != NULL) {
+        free(response_header_str);
     }
     if (e.tag != ERROR_NONE) {
-        printf("%s\n", error_stringify(e, sizeof(strbuf), strbuf));
+        printf("%s\n", error_stringify(e, sizeof(error_strbuf), error_strbuf));
         return_status = EXIT_FAILURE;
     }
     if (conn_fd != -1) {
         e = close_socket(conn_fd);
         if (e.tag != ERROR_NONE) {
-            printf("%s\n", error_stringify(e, sizeof(strbuf), strbuf));
+            printf("%s\n", error_stringify(e, sizeof(error_strbuf), error_strbuf));
             return_status = EXIT_FAILURE;
         }
     }
     if (server_fd != -1) {
         e = close_socket(server_fd);
         if (e.tag != ERROR_NONE) {
-            printf("%s\n", error_stringify(e, sizeof(strbuf), strbuf));
+            printf("%s\n", error_stringify(e, sizeof(error_strbuf), error_strbuf));
             return_status = EXIT_FAILURE;
         }
     }

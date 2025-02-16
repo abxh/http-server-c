@@ -152,9 +152,9 @@ bytes_sendall_(const ErrorInfo_t ei, const int flags, const int conn_fd, const s
 /**
  * Send a file
  */
-Error_t bytes_sendfile_(const ErrorInfo_t ei, size_t buf_size, const int conn_fd, const int file_fd)
+Error_t bytes_sendfile_(const ErrorInfo_t ei, const int conn_fd, const int file_fd, size_t max_file_size)
 {
-    if (sendfile(conn_fd, file_fd, NULL, buf_size) == -1) {
+    if (sendfile(conn_fd, file_fd, NULL, max_file_size) == -1) {
         return error_format_location(ei, (Error_t){.tag = ERROR_ERRNO, .errno_num = errno});
     }
     return NO_ERRORS;

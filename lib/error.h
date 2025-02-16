@@ -21,7 +21,7 @@ typedef struct Error {
         int errno_num;
         int gai_errcode;
         char null_param_name[32];
-        char *custom_msg;
+        const char *custom_msg;
     };
 } Error_t;
 
