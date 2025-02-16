@@ -221,7 +221,7 @@ Error_t handle_client(const int conn_fd, struct ClientHandler *handler)
     else {
         e.tag = ERROR_CUSTOM;
         e.custom_msg = "no matching routes! sending 403";
-        e = error_format_location(ERROR_INFO("handle_response"), e);
+        e = error_format_location(ERROR_INFO("handle_client"), e);
     }
 
 on_error:
@@ -265,15 +265,15 @@ int main(int argc, char *argv[])
             continue;
         }
 
-        const Error_t handle_response_error = handle_client(conn_fd, &client_handler);
-        if (handle_response_error.tag != ERROR_NONE) {
-            printf("%s\n", error_stringify(handle_response_error, sizeof(error_strbuf), error_strbuf));
+        const Error_t handle_client_error = handle_client(conn_fd, &client_handler);
+        if (handle_client_error.tag != ERROR_NONE) {
+            printf("%s\n", error_stringify(handle_client_error, sizeof(error_strbuf), error_strbuf));
             close_socket(conn_fd);
             continue;
         }
 
         const Error_t client_close_error = close_socket(conn_fd);
-        if (handle_response_error.tag != ERROR_NONE) {
+        if (client_close_error.tag != ERROR_NONE) {
             printf("%s\n", error_stringify(client_close_error, sizeof(error_strbuf), error_strbuf));
         }
     }
