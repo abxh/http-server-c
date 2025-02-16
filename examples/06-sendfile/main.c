@@ -40,7 +40,7 @@ Error_t send_file_entity(const int conn_fd, const char *content_type, const char
     e = bytes_sendall(conn_fd, out_buf_len, out_buf);
     if (e.tag != ERROR_NONE) goto cleanup1;
 
-    e = bytes_sendfile(conn_fd, file_handle, 100 * (int)1e+6);
+    e = bytes_sendfile(conn_fd, file_handle, 100 * (int)1e+6); // max file size
     if (e.tag != ERROR_NONE) goto cleanup1;
 
 cleanup1:
