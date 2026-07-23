@@ -1,6 +1,6 @@
 # http-server-c
 
-Is made in linux in mind.
+Made for linux in mind.
 
 ## Clone steps
 ```bash
