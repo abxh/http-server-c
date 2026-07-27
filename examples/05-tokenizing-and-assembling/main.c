@@ -4,9 +4,7 @@
 #include <string.h>
 #include <unistd.h>
 
-#define i_static
-#define STC_CSTR_IO
-#include <STC/include/stc/cstr.h>
+#include "sds/sds.h"
 
 #include "connection.h"
 #include "connection_tcp.h"
@@ -28,7 +26,7 @@ int main(int argc, char *argv[])
     int server_fd = -1;
     int conn_fd = -1;
 
-    struct csview_htable *headers = csview_htable_create(2);
+    strtable *headers = strtable_create(2);
 
     size_t response_header_str_len = 0;
     char *response_header_str = NULL;
@@ -39,8 +37,8 @@ int main(int argc, char *argv[])
     struct BufferedReader reader = {0};
 
     struct RequestLine request_line = {0};
-    cstr response_body = cstr_init();
-    cstr content_length_str = cstr_init();
+    sds rbody = sdsempty();
+    sds content_length_str = sdsempty();
 
     e = open_tcp_server(port, &server_fd);
     if (e.tag != ERROR_NONE) goto on_error;
@@ -56,15 +54,17 @@ int main(int argc, char *argv[])
         e = tokenize_request_line(line_len, linebuf, &request_line);
         if (e.tag != ERROR_NONE) goto on_error; // should ideally send a error response to user here
 
-        cstr_append(&response_body, "request structure:\n");
-        cstr_append(&response_body, " - request line:\n");
-        cstr_append_fmt(&response_body, "  - method: %.*s\n", (int)request_line.method.size, request_line.method.buf);
-        cstr_append_fmt(&response_body, "  - url: %.*s\n", (int)request_line.url.size, request_line.url.buf);
+        rbody = sdscat(rbody, "request structure:\n");
+        rbody = sdscat(rbody, " - request line:\n");
+        rbody = sdscatprintf(rbody, "  - method: %.*s\n", (int)request_line.method.size, request_line.method.buf);
+        rbody = sdscatprintf(rbody, "  - url: %.*s\n", (int)request_line.url.size, request_line.url.buf);
         // clang-format off
-        cstr_append_fmt( &response_body, "  - protocol name: %.*s\n",
+        rbody =
+            sdscatprintf(rbody, "  - protocol name: %.*s\n",
             (int)request_line.protocol_name.size,
             request_line.protocol_name.buf);
-        cstr_append_fmt( &response_body, "  - protocol version: %.*s\n",
+        rbody =
+            sdscatprintf(rbody, "  - protocol version: %.*s\n",
             (int)request_line.protocol_version.size,
             request_line.protocol_version.buf);
         // clang-format on
@@ -81,34 +81,33 @@ int main(int argc, char *argv[])
             e = tokenize_header(line_len, linebuf, &header);
             if (e.tag != ERROR_NONE) goto on_error;
 
-            // clang-format off
-            cstr_append_fmt( &response_body, " - header field(%.*s)\n",
-                            (int)header.field_name.size, header.field_name.buf);
-            cstr_append_fmt(&response_body, "  - value: %.*s\n",
-                            (int)header.field_value.size, header.field_value.buf);
-            // clang-format on
+            rbody = sdscatprintf(rbody, " - header field(%.*s)\n", (int)header.field_name.size, header.field_name.buf);
+            rbody = sdscatprintf(rbody, "  - value: %.*s\n", (int)header.field_value.size, header.field_value.buf);
         } while (true); // expecting no payload and no errors
-        cstr_append_fmt(&response_body, "\n");
 
-        cstr_append_fmt(&content_length_str, "%d", cstr_size(&response_body));
+        rbody = sdscat(rbody, "\n");
+        content_length_str = sdsfromlonglong((long long)sdslen(rbody));
 
-        csview_htable_update(headers, c_sv("Content-Type"), c_sv("text/plain"));
-        csview_htable_update(headers, c_sv("Content-Length"), csview_from(cstr_str(&content_length_str)));
+        strtable_update(headers, strview_from("Content-Type"), strview_from("text/plain"));
+        strtable_update(headers, strview_from("Content-Length"), strview_from(content_length_str));
 
         struct StatusLine status = {
-            .http_version = csview_from("1.0"), .status_code = csview_from("200"), .status_desc = csview_from("OK")};
+            .http_version = strview_from("1.0"),
+            .status_code = strview_from("200"),
+            .status_desc = strview_from("OK"),
+        };
         e = assemble_response_header(status, headers, &response_header_str_len, &response_header_str);
         if (e.tag != ERROR_NONE) goto on_error;
 
         e = bytes_sendall(conn_fd, response_header_str_len, response_header_str);
         if (e.tag != ERROR_NONE) goto on_error;
 
-        e = bytes_sendall(conn_fd, (size_t)cstr_size(&response_body), cstr_str(&response_body));
+        e = bytes_sendall(conn_fd, sdslen(rbody), rbody);
         if (e.tag != ERROR_NONE) goto on_error;
 
-        cstr_clear(&response_body);
-        cstr_clear(&content_length_str);
-        csview_htable_clear(headers);
+        sdsclear(rbody);
+        sdsclear(content_length_str);
+        strtable_clear(headers);
         buffered_reader_flush(&reader);
 
         free(response_header_str);
@@ -119,9 +118,9 @@ int main(int argc, char *argv[])
     }
 
 on_error:
-    cstr_drop(&response_body);
-    cstr_drop(&content_length_str);
-    csview_htable_destroy(headers);
+    sdsfree(rbody);
+    sdsfree(content_length_str);
+    strtable_destroy(headers);
     if (response_header_str != NULL) {
         free(response_header_str);
     }

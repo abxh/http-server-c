@@ -9,11 +9,7 @@
 #include "connection_tcp.h"
 #include "message.h"
 
-#define i_static
-#define STC_CSTR_IO
-#include <STC/include/stc/cstr.h>
-
-#include "types/csview.h"
+#include "sds/sds.h"
 
 Error_t send_file_entity(const int conn_fd, const char *content_type, const char *content_length, const char *filepath)
 {
@@ -23,12 +19,15 @@ Error_t send_file_entity(const int conn_fd, const char *content_type, const char
             ERROR_INFO("open_file_and_get_file_size"), (Error_t){.tag = ERROR_ERRNO, .errno_num = errno});
     }
 
-    struct csview_htable *headers = csview_htable_create(2);
-    csview_htable_update(headers, c_sv("Content-Type"), csview_from(content_type));
-    csview_htable_update(headers, c_sv("Content-Length"), csview_from(content_length));
+    struct strtable *headers = strtable_create(2);
+    strtable_update(headers, strview_from("Content-Type"), strview_from(content_type));
+    strtable_update(headers, strview_from("Content-Length"), strview_from(content_length));
 
     const struct StatusLine status = {
-        .http_version = csview_from("1.0"), .status_code = csview_from("200"), .status_desc = csview_from("OK")};
+        .http_version = strview_from("1.0"),
+        .status_code = strview_from("200"),
+        .status_desc = strview_from("OK"),
+    };
 
     size_t out_buf_len = 0;
     char *out_buf = NULL;
@@ -51,26 +50,28 @@ cleanup1:
         free(out_buf);
     }
     if (headers != NULL) {
-        csview_htable_destroy(headers);
+        strtable_destroy(headers);
     }
     return e;
 }
 
 struct Route {
-    cstr filepath;
-    const char *content_type;
-    cstr content_length;
+    sds filepath;
+    strview content_type;
+    sds content_length;
 };
 
+#include <data-structures-c/fhashtable/fnvhash.h>
+
 #define NAME               routes_htable
-#define KEY_TYPE           csview
+#define KEY_TYPE           strview
 #define VALUE_TYPE         struct Route
-#define KEY_IS_EQUAL(a, b) (csview_equals_sv((a), (b)))
+#define KEY_IS_EQUAL(a, b) (strview_equals((a), (b)))
 #define HASH_FUNCTION(key) (fnvhash_32((uint8_t *)(key).buf, (size_t)(key).size))
 #define TYPE_DEFINITIONS
 #define FUNCTION_DEFINITIONS
 #define FUNCTION_LINKAGE static inline
-#include <dsa-c/fhashtable/fhashtable_template.h>
+#include <data-structures-c/fhashtable/fhashtable_template.h>
 
 struct ClientHandler {
     struct routes_htable *routes;
@@ -82,7 +83,7 @@ static const char RESPONSE_403_BAD_REQUEST[] = "HTTP/1.0 403 Bad Request\r\n"
                                                "\r\n"
                                                "403 Bad Request";
 
-Error_t open_file_and_get_file_size(const char *filepath, cstr *out_file_size_str)
+Error_t open_file_and_get_file_size(const char *filepath, sds *out_file_size_str)
 {
     FILE *fp = fopen(filepath, "r");
     if (fp == NULL) {
@@ -98,7 +99,7 @@ Error_t open_file_and_get_file_size(const char *filepath, cstr *out_file_size_st
         return error_format_location(
             ERROR_INFO("open_file_and_get_file_size"), (Error_t){.tag = ERROR_ERRNO, .errno_num = errno});
     }
-    *out_file_size_str = cstr_from_fmt("%u", size);
+    *out_file_size_str = sdsfromlonglong(size);
     return NO_ERRORS;
 }
 
@@ -113,28 +114,28 @@ Error_t init_client_handler(struct ClientHandler *handler, const char *rootpath)
     Error_t e = NO_ERRORS;
 
     r = (struct Route){0};
-    r.filepath = cstr_from(rootpath);
-    cstr_append_fmt(&r.filepath, "/index.html");
-    r.content_type = "text/html";
-    e = open_file_and_get_file_size(cstr_str(&r.filepath), &r.content_length);
+    r.filepath = sdsnew(rootpath);
+    r.filepath = sdscatfmt(r.filepath, "/index.html");
+    r.content_type = strview_from("text/html");
+    e = open_file_and_get_file_size(r.filepath, &r.content_length);
     if (e.tag != ERROR_NONE) return e;
-    routes_htable_update(handler->routes, c_sv("/"), r);
+    routes_htable_update(handler->routes, strview_from("/"), r);
 
-    r.filepath = cstr_clone(r.filepath);
-    r.content_length = cstr_clone(r.content_length);
-    routes_htable_update(handler->routes, c_sv("/index.html"), r);
+    r.filepath = sdsnew(r.filepath);
+    r.content_length = sdsnew(r.content_length);
+    routes_htable_update(handler->routes, strview_from("/index.html"), r);
 
     r = (struct Route){0};
-    r.filepath = cstr_from(rootpath);
-    cstr_append_fmt(&r.filepath, "/images/cat.jpg");
-    r.content_type = "image/jpeg";
-    e = open_file_and_get_file_size(cstr_str(&r.filepath), &r.content_length);
+    r.filepath = sdsnew(rootpath);
+    r.filepath = sdscatfmt(r.filepath, "/images/cat.jpg");
+    r.content_type = strview_from("image/jpeg");
+    e = open_file_and_get_file_size(r.filepath, &r.content_length);
     if (e.tag != ERROR_NONE) return e;
-    routes_htable_update(handler->routes, c_sv("/images/cat.jpg"), r);
+    routes_htable_update(handler->routes, strview_from("/images/cat.jpg"), r);
 
-    r.filepath = cstr_clone(r.filepath);
-    r.content_length = cstr_clone(r.content_length);
-    routes_htable_update(handler->routes, c_sv("/epic-cat"), r);
+    r.filepath = sdsnew(r.filepath);
+    r.content_length = sdsnew(r.content_length);
+    routes_htable_update(handler->routes, strview_from("/epic-cat"), r);
 
     return e;
 }
@@ -142,14 +143,14 @@ Error_t init_client_handler(struct ClientHandler *handler, const char *rootpath)
 void destroy_client_handler(struct ClientHandler *handler)
 {
     {
-        csview key;
+        strview key;
         struct Route value;
         size_t idx;
         (void)(key);
         FHASHTABLE_FOR_EACH(handler->routes, idx, key, value)
         {
-            cstr_drop(&value.content_length);
-            cstr_drop(&value.filepath);
+            sdsfree(value.content_length);
+            sdsfree(value.filepath);
         }
     }
     routes_htable_destroy(handler->routes);
@@ -172,30 +173,24 @@ Error_t handle_client(const int conn_fd, struct ClientHandler *handler)
     e = tokenize_request_line(request_line_len, request_line_buf, &request_line);
     if (e.tag != ERROR_NONE) goto on_error;
 
-    /*
-    printf("request line:\n");
-    printf(" method: %.*s\n", (int)request_line.method.size, request_line.method.buf);
-    printf(" url: %.*s\n", (int)request_line.url.size, request_line.url.buf);
-    printf(" protocol name: %.*s\n", (int)request_line.protocol_name.size, request_line.protocol_name.buf);
-    printf(" protocol version: %.*s\n", (int)request_line.protocol_version.size, request_line.protocol_version.buf);
-
-    {
-        csview key;
-        struct Route value;
-        size_t idx;
-        (void)(key);
-        FHASHTABLE_FOR_EACH(handler->routes, idx, key, value)
-        {
-            printf("route :\n");
-            printf(" - %.*s", (int)key.size, key.buf);
-            printf(
-                " -> %s (%s bytes) of type %s\n",
-                cstr_str(&value.filepath),
-                cstr_str(&value.content_length),
-                value.content_type);
-        }
-    }
-    */
+    // printf("request line:\n");
+    // printf(" method: %.*s\n", (int)request_line.method.size, request_line.method.buf);
+    // printf(" url: %.*s\n", (int)request_line.url.size, request_line.url.buf);
+    // printf(" protocol name: %.*s\n", (int)request_line.protocol_name.size, request_line.protocol_name.buf);
+    // printf(" protocol version: %.*s\n", (int)request_line.protocol_version.size, request_line.protocol_version.buf);
+    //
+    // {
+    //     strview key;
+    //     struct Route value;
+    //     size_t idx;
+    //     (void)(key);
+    //     FHASHTABLE_FOR_EACH(handler->routes, idx, key, value)
+    //     {
+    //         printf("route :\n");
+    //         printf(" - %.*s", (int)key.size, key.buf);
+    //         printf(" -> %s (%s bytes) of type %s\n", value.filepath, value.content_length, value.content_type.buf);
+    //     }
+    // }
 
     struct HTTPHeader header = {0}; // do no validation / processing of the headers.
     do {
@@ -215,8 +210,7 @@ Error_t handle_client(const int conn_fd, struct ClientHandler *handler)
     if (routes_htable_contains_key(handler->routes, request_line.url)) // no special processing
     {
         const struct Route route = *routes_htable_get_value_mut(handler->routes, request_line.url);
-        return send_file_entity(
-            conn_fd, route.content_type, cstr_str(&route.content_length), cstr_str(&route.filepath));
+        return send_file_entity(conn_fd, route.content_type.buf, route.content_length, route.filepath);
     }
     else {
         e.tag = ERROR_CUSTOM;

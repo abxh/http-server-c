@@ -2,28 +2,28 @@
 
 #include "error.h"
 
-#include "types/csview.h"
-#include "types/csview_htable.h"
+#include "types/strtable.h"
+#include "types/strview.h"
 
 #include <stdlib.h>
 #include <string.h>
 
 struct RequestLine {
-    csview method;
-    csview url;
-    csview protocol_name;
-    csview protocol_version;
+    strview method;
+    strview url;
+    strview protocol_name;
+    strview protocol_version;
 };
 
 struct HTTPHeader {
-    csview field_name;
-    csview field_value;
+    strview field_name;
+    strview field_value;
 };
 
 struct StatusLine {
-    csview http_version;
-    csview status_code;
-    csview status_desc;
+    strview http_version;
+    strview status_code;
+    strview status_desc;
 };
 
 /**
@@ -54,7 +54,7 @@ Error_t assemble_response_header_(
     void *allocator_context,
     void *(*allocate)(void *context, size_t alignment, size_t size),
     struct StatusLine status,
-    struct csview_htable *headers,
+    const strtable *headers,
     size_t *out_buf_len,
     char **out_buf);
 

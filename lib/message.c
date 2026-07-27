@@ -50,10 +50,10 @@ Error_t tokenize_request_line_(const ErrorInfo_t ei, const size_t line_len, cons
     }
 
     // clang-format off
-    out->method           = csview_with_n(line, SP1 - line);
-    out->url              = csview_with_n(SP1 + 1, SP2 - (SP1 + 1));
-    out->protocol_name    = csview_with_n(SP2 + 1, SLASH - (SP2 + 1));
-    out->protocol_version = csview_with_n(SLASH + 1, CLRS - (SLASH + 1));
+    out->method           = strview_from_sized(line, SP1 - line);
+    out->url              = strview_from_sized(SP1 + 1, SP2 - (SP1 + 1));
+    out->protocol_name    = strview_from_sized(SP2 + 1, SLASH - (SP2 + 1));
+    out->protocol_version = strview_from_sized(SLASH + 1, CLRS - (SLASH + 1));
     // clang-format on
 
     return NO_ERRORS;
@@ -107,8 +107,8 @@ Error_t tokenize_header_(const ErrorInfo_t ei, const size_t line_len, const char
     }
 
     // clang-format off
-    out->field_name  = csview_with_n(line, COLON - line);
-    out->field_value = csview_with_n(COLON + 1, CLRS - (COLON + 1));
+    out->field_name  = strview_from_sized(line, COLON - line);
+    out->field_value = strview_from_sized(COLON + 1, CLRS - (COLON + 1));
     // clang-format on
 
     return NO_ERRORS;
@@ -119,7 +119,7 @@ Error_t assemble_response_header_(
     void *allocator_context,
     void *(*allocate)(void *context, size_t alignment, size_t size),
     struct StatusLine status,
-    struct csview_htable *headers,
+    const strtable *headers,
     size_t *out_buf_len,
     char **out_buf)
 {
@@ -166,8 +166,8 @@ Error_t assemble_response_header_(
     len += (size_t)status.status_desc.size;
     len += 2; // CLRS
     {
-        csview key;
-        csview value;
+        struct strview key;
+        struct strview value;
 
         size_t idx;
         FHASHTABLE_FOR_EACH(headers, idx, key, value)
@@ -202,8 +202,8 @@ Error_t assemble_response_header_(
     buf_idx += 2; // CLRS
 
     {
-        csview key;
-        csview value;
+        struct strview key;
+        struct strview value;
 
         size_t idx;
         FHASHTABLE_FOR_EACH(headers, idx, key, value)
