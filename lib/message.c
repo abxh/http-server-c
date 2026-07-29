@@ -7,9 +7,8 @@
 #include <stdio.h>
 #include <string.h>
 
-Error_t tokenize_request_line_(const ErrorInfo_t ei, const size_t line_len, const char *line, struct RequestLine *out)
+Error_t tokenize_request_line_(const ErrorInfo_t ei, const strview LINE, struct RequestLine *out)
 {
-    RETURN_IF_NULL(ei, line);
     RETURN_IF_NULL(ei, out);
 
     /*
@@ -21,47 +20,42 @@ Error_t tokenize_request_line_(const ErrorInfo_t ei, const size_t line_len, cons
 
             Request-Line   = Method SP Request-URI SP HTTP-Version CRLF
     */
-    const char *SP1 = strchr(line, ' ');
-    if (!SP1) {
+    strview SP1 = STRVIEW_EMPTY;
+    if (!strview_find_firstc(LINE, ' ', &SP1)) {
         return error_format_location(
             ei, (Error_t){.tag = ERROR_CUSTOM, .custom_msg = "missing first space delimiter in Request-Line"});
     }
 
-    const char *SP2 = strchr(SP1 + 1, ' ');
-    if (!SP2) {
+    strview SP2 = STRVIEW_EMPTY;
+    if (!strview_find_firstc(strview_drop(SP1, 1), ' ', &SP2)) {
         return error_format_location(
             ei, (Error_t){.tag = ERROR_CUSTOM, .custom_msg = "missing second space delimiter in Request-Line"});
     }
 
-    const char *SLASH = strchr(SP2, '/');
-    if (!SLASH) {
+    strview SLASH = STRVIEW_EMPTY;
+    if (!strview_find_firstc(SP2, '/', &SLASH)) {
         return error_format_location(
             ei, (Error_t){.tag = ERROR_CUSTOM, .custom_msg = "missing protocol name-version / delimiter"});
     }
 
-    const char *CLRS = strstr(SLASH + 1, "\r\n");
-    if (!CLRS) {
+    strview CLRS = STRVIEW_EMPTY;
+    if (!strview_find_first(strview_drop(SLASH, 1), strview_from_cstr("\r\n"), &CLRS)) {
         return error_format_location(
             ei, (Error_t){.tag = ERROR_CUSTOM, .custom_msg = "missing CLRS delimiter for Request-Line"});
     }
 
-    if ((CLRS + 2) - line > (ptrdiff_t)line_len) {
-        return error_format_location(ei, (Error_t){.tag = ERROR_CUSTOM, .custom_msg = "unexpected line_len"});
-    }
-
     // clang-format off
-    out->method           = strview_from_sized(line, SP1 - line);
-    out->url              = strview_from_sized(SP1 + 1, SP2 - (SP1 + 1));
-    out->protocol_name    = strview_from_sized(SP2 + 1, SLASH - (SP2 + 1));
-    out->protocol_version = strview_from_sized(SLASH + 1, CLRS - (SLASH + 1));
+    out->method           = strview_take(LINE, (size_t)(SP1.buf - LINE.buf));
+    out->url              = strview_take(strview_drop(SP1, 1), (size_t)(SP2.buf - (SP1.buf + 1)));
+    out->protocol_name    = strview_take(strview_drop(SP2, 1), (size_t)(SLASH.buf - (SP2.buf + 1)));
+    out->protocol_version = strview_take(strview_drop(SLASH, 1), (size_t)(CLRS.buf - (SLASH.buf + 1)));
     // clang-format on
 
     return NO_ERRORS;
 }
 
-Error_t tokenize_header_(const ErrorInfo_t ei, const size_t line_len, const char *line, struct HTTPHeader *out)
+Error_t tokenize_header_(const ErrorInfo_t ei, const strview LINE, struct HTTPHeader *out)
 {
-    RETURN_IF_NULL(ei, line);
     RETURN_IF_NULL(ei, out);
 
     /*
@@ -87,28 +81,22 @@ Error_t tokenize_header_(const ErrorInfo_t ei, const size_t line_len, const char
                                 and consisting of either *TEXT or combinations
                                 of token, separators, and quoted-string>
     */
-    const char *COLON = strchr(line, ':');
-    if (!COLON) {
-        return error_format_location(ei, (Error_t){.tag = ERROR_CUSTOM, .custom_msg = "missing : delimiter in header"});
+    strview COLON = STRVIEW_EMPTY;
+    if (!strview_find_firstc(LINE, ':', &COLON)) {
+        return error_format_location(
+            ei, (Error_t){.tag = ERROR_CUSTOM, .custom_msg = "missing `:` delimiter in header"});
     }
 
-    while (*(COLON + 1) == ' ') {
-        COLON += 1;
-    }
-
-    const char *CLRS = strstr(COLON + 1, "\r\n");
-    if (!CLRS) {
+    strview FIELD_VALUE = strview_trim_left(COLON);
+    strview CLRS = STRVIEW_EMPTY;
+    if (!strview_find_first(strview_drop(FIELD_VALUE, 1), strview_from_cstr("\r\n"), &CLRS)) {
         return error_format_location(
             ei, (Error_t){.tag = ERROR_CUSTOM, .custom_msg = "missing CLRS delimiter for header"});
     }
 
-    if ((CLRS + 2) - line > (ptrdiff_t)line_len) {
-        return error_format_location(ei, (Error_t){.tag = ERROR_CUSTOM, .custom_msg = "unexpected line_len"});
-    }
-
     // clang-format off
-    out->field_name  = strview_from_sized(line, COLON - line);
-    out->field_value = strview_from_sized(COLON + 1, CLRS - (COLON + 1));
+    out->field_name    = strview_take(LINE, (size_t)(COLON.buf - LINE.buf));
+    out->field_content = strview_take(FIELD_VALUE, (size_t)(CLRS.buf - FIELD_VALUE.buf));
     // clang-format on
 
     return NO_ERRORS;

@@ -20,13 +20,13 @@ Error_t send_file_entity(const int conn_fd, const char *content_type, const char
     }
 
     struct strtable *headers = strtable_create(2);
-    strtable_update(headers, strview_from("Content-Type"), strview_from(content_type));
-    strtable_update(headers, strview_from("Content-Length"), strview_from(content_length));
+    strtable_update(headers, strview_from_cstr("Content-Type"), strview_from_cstr(content_type));
+    strtable_update(headers, strview_from_cstr("Content-Length"), strview_from_cstr(content_length));
 
     const struct StatusLine status = {
-        .http_version = strview_from("1.0"),
-        .status_code = strview_from("200"),
-        .status_desc = strview_from("OK"),
+        .http_version = strview_from_cstr("1.0"),
+        .status_code = strview_from_cstr("200"),
+        .status_desc = strview_from_cstr("OK"),
     };
 
     size_t out_buf_len = 0;
@@ -116,26 +116,26 @@ Error_t init_client_handler(struct ClientHandler *handler, const char *rootpath)
     r = (struct Route){0};
     r.filepath = sdsnew(rootpath);
     r.filepath = sdscatfmt(r.filepath, "/index.html");
-    r.content_type = strview_from("text/html");
+    r.content_type = strview_from_cstr("text/html");
     e = open_file_and_get_file_size(r.filepath, &r.content_length);
     if (e.tag != ERROR_NONE) return e;
-    routes_htable_update(handler->routes, strview_from("/"), r);
+    routes_htable_update(handler->routes, strview_from_cstr("/"), r);
 
     r.filepath = sdsnew(r.filepath);
     r.content_length = sdsnew(r.content_length);
-    routes_htable_update(handler->routes, strview_from("/index.html"), r);
+    routes_htable_update(handler->routes, strview_from_cstr("/index.html"), r);
 
     r = (struct Route){0};
     r.filepath = sdsnew(rootpath);
     r.filepath = sdscatfmt(r.filepath, "/images/cat.jpg");
-    r.content_type = strview_from("image/jpeg");
+    r.content_type = strview_from_cstr("image/jpeg");
     e = open_file_and_get_file_size(r.filepath, &r.content_length);
     if (e.tag != ERROR_NONE) return e;
-    routes_htable_update(handler->routes, strview_from("/images/cat.jpg"), r);
+    routes_htable_update(handler->routes, strview_from_cstr("/images/cat.jpg"), r);
 
     r.filepath = sdsnew(r.filepath);
     r.content_length = sdsnew(r.content_length);
-    routes_htable_update(handler->routes, strview_from("/epic-cat"), r);
+    routes_htable_update(handler->routes, strview_from_cstr("/epic-cat"), r);
 
     return e;
 }
@@ -170,7 +170,7 @@ Error_t handle_client(const int conn_fd, struct ClientHandler *handler)
     if (e.tag != ERROR_NONE) goto on_error;
 
     struct RequestLine request_line = {0};
-    e = tokenize_request_line(request_line_len, request_line_buf, &request_line);
+    e = tokenize_request_line(strview_from_sized((uint8_t *)request_line_buf, request_line_len), &request_line);
     if (e.tag != ERROR_NONE) goto on_error;
 
     // printf("request line:\n");
@@ -203,14 +203,14 @@ Error_t handle_client(const int conn_fd, struct ClientHandler *handler)
             break;
         }
 
-        e = tokenize_header(line_len, linebuf, &header);
+        e = tokenize_header(strview_from_sized((uint8_t *)request_line_buf, request_line_len), &header);
         if (e.tag != ERROR_NONE) goto on_error;
     } while (true);
 
     if (routes_htable_contains_key(handler->routes, request_line.url)) // no special processing
     {
         const struct Route route = *routes_htable_get_value_mut(handler->routes, request_line.url);
-        return send_file_entity(conn_fd, route.content_type.buf, route.content_length, route.filepath);
+        return send_file_entity(conn_fd, (const char *)route.content_type.buf, route.content_length, route.filepath);
     }
     else {
         e.tag = ERROR_CUSTOM;

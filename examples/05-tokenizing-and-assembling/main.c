@@ -51,7 +51,7 @@ int main(int argc, char *argv[])
         e = bytes_recvline(&reader, sizeof(linebuf), linebuf, &line_len);
         if (e.tag != ERROR_NONE) goto on_error;
 
-        e = tokenize_request_line(line_len, linebuf, &request_line);
+        e = tokenize_request_line(strview_from_sized((uint8_t *)linebuf, line_len), &request_line);
         if (e.tag != ERROR_NONE) goto on_error; // should ideally send a error response to user here
 
         rbody = sdscat(rbody, "request structure:\n");
@@ -78,23 +78,23 @@ int main(int argc, char *argv[])
             }
 
             struct HTTPHeader header = {0};
-            e = tokenize_header(line_len, linebuf, &header);
+            e = tokenize_header(strview_from_sized((uint8_t *)linebuf, line_len), &header);
             if (e.tag != ERROR_NONE) goto on_error;
 
             rbody = sdscatprintf(rbody, " - header field(%.*s)\n", (int)header.field_name.size, header.field_name.buf);
-            rbody = sdscatprintf(rbody, "  - value: %.*s\n", (int)header.field_value.size, header.field_value.buf);
+            rbody = sdscatprintf(rbody, "  - value: %.*s\n", (int)header.field_content.size, header.field_content.buf);
         } while (true); // expecting no payload and no errors
 
         rbody = sdscat(rbody, "\n");
         content_length_str = sdsfromlonglong((long long)sdslen(rbody));
 
-        strtable_update(headers, strview_from("Content-Type"), strview_from("text/plain"));
-        strtable_update(headers, strview_from("Content-Length"), strview_from(content_length_str));
+        strtable_update(headers, strview_from_cstr("Content-Type"), strview_from_cstr("text/plain"));
+        strtable_update(headers, strview_from_cstr("Content-Length"), strview_from_cstr(content_length_str));
 
         struct StatusLine status = {
-            .http_version = strview_from("1.0"),
-            .status_code = strview_from("200"),
-            .status_desc = strview_from("OK"),
+            .http_version = strview_from_cstr("1.0"),
+            .status_code = strview_from_cstr("200"),
+            .status_desc = strview_from_cstr("OK"),
         };
         e = assemble_response_header(status, headers, &response_header_str_len, &response_header_str);
         if (e.tag != ERROR_NONE) goto on_error;

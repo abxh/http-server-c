@@ -5,6 +5,7 @@
 #include "types/strtable.h"
 #include "types/strview.h"
 
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -17,7 +18,7 @@ struct RequestLine {
 
 struct HTTPHeader {
     strview field_name;
-    strview field_value;
+    strview field_content;
 };
 
 struct StatusLine {
@@ -29,12 +30,12 @@ struct StatusLine {
 /**
  * Tokenize request line
  */
-Error_t tokenize_request_line_(const ErrorInfo_t ei, const size_t line_len, const char *line, struct RequestLine *out);
+Error_t tokenize_request_line_(const ErrorInfo_t ei, const strview line, struct RequestLine *out);
 
 /**
  * Tokenize header
  */
-Error_t tokenize_header_(const ErrorInfo_t ei, const size_t line_len, const char *line, struct HTTPHeader *out);
+Error_t tokenize_header_(const ErrorInfo_t ei, const strview line, struct HTTPHeader *out);
 
 /**
  * Default dummy malloc function
