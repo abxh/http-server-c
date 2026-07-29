@@ -2,7 +2,7 @@
 
 #include <ctype.h>
 
-bool strview_find_firstc(const struct strview s, const char c, struct strview *out)
+bool strview_find_first_char(const struct strview s, const char c, struct strview *out)
 {
     const uint8_t *ptr = memchr(s.buf, (uint8_t)c, s.size);
     if (!ptr) {
@@ -22,7 +22,7 @@ bool strview_find_first(const struct strview s, const struct strview occurrence,
         *out = s;
         return true;
     case 1:
-        return strview_find_firstc(s, (char)occurrence.buf[0], out);
+        return strview_find_first_char(s, (char)occurrence.buf[0], out);
     default:
         for (uint32_t i = 0; i <= s.size - occurrence.size; i++) {
             if (memcmp(s.buf + i, occurrence.buf, occurrence.size) == 0) {
