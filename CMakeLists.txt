@@ -16,13 +16,10 @@ set(EXTERNAL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external")
 FetchContent_Declare(
     dsa
     GIT_REPOSITORY https://github.com/abxh/data-structures-c.git
-    GIT_TAG v0.1
+    GIT_TAG v0.1.1
     SOURCE_DIR "${EXTERNAL_DIR}/data-structures-c"
 )
-FetchContent_GetProperties(dsa)
-if(NOT dsa_POPULATED)
-    FetchContent_Populate(dsa)
-endif()
+FetchContent_MakeAvailable(dsa)
 if(NOT TARGET dsa)
     add_library(dsa INTERFACE)
     target_include_directories(dsa INTERFACE ${dsa_SOURCE_DIR})
@@ -34,10 +31,7 @@ FetchContent_Declare(
     GIT_TAG 2.0.0
     SOURCE_DIR "${EXTERNAL_DIR}/sds"
 )
-FetchContent_GetProperties(sds)
-if(NOT sds_POPULATED)
-    FetchContent_Populate(sds)
-endif()
+FetchContent_MakeAvailable(sds)
 if(NOT TARGET sds)
     add_library(sds ${sds_SOURCE_DIR}/sds.c)
     target_include_directories(sds PUBLIC ${sds_SOURCE_DIR})
