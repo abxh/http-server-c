@@ -28,8 +28,7 @@ int main(int argc, char *argv[])
 
     strtable *headers = strtable_create(2);
 
-    size_t response_header_str_len = 0;
-    char *response_header_str = NULL;
+    sds response_header = NULL;
 
     char msgbuf[4096] = {0};
     char linebuf[1024] = {0};
@@ -38,7 +37,6 @@ int main(int argc, char *argv[])
 
     struct RequestLine request_line = {0};
     sds rbody = sdsempty();
-    sds content_length_str = sdsempty();
 
     e = open_tcp_server(port, &server_fd);
     if (e.tag != ERROR_NONE) goto on_error;
@@ -86,8 +84,7 @@ int main(int argc, char *argv[])
         } while (true); // expecting no payload and no errors
 
         rbody = sdscat(rbody, "\n");
-        content_length_str = sdsfromlonglong((long long)sdslen(rbody));
-
+        sds content_length_str = sdsfromlonglong((long long)sdslen(rbody));
         strtable_update(headers, strview_from_cstr("Content-Type"), strview_from_cstr("text/plain"));
         strtable_update(headers, strview_from_cstr("Content-Length"), strview_from_cstr(content_length_str));
 
@@ -96,34 +93,32 @@ int main(int argc, char *argv[])
             .status_code = strview_from_cstr("200"),
             .status_desc = strview_from_cstr("OK"),
         };
-        e = assemble_response_header(status, headers, &response_header_str_len, &response_header_str);
+        e = assemble_response_header(status, headers, &response_header);
         if (e.tag != ERROR_NONE) goto on_error;
 
-        e = bytes_sendall(conn_fd, response_header_str_len, response_header_str);
+        e = bytes_sendall(conn_fd, sdslen(response_header), response_header);
         if (e.tag != ERROR_NONE) goto on_error;
 
         e = bytes_sendall(conn_fd, sdslen(rbody), rbody);
         if (e.tag != ERROR_NONE) goto on_error;
 
+        sdsfree(content_length_str);
+
         sdsclear(rbody);
-        sdsclear(content_length_str);
         strtable_clear(headers);
         buffered_reader_flush(&reader);
-
-        free(response_header_str);
-        response_header_str = NULL;
+        sdsclear(response_header);
 
         e = close_socket(conn_fd);
         if (e.tag != ERROR_NONE) goto on_error;
-    }
+        conn_fd = -1;
+    };
 
 on_error:
     sdsfree(rbody);
-    sdsfree(content_length_str);
     strtable_destroy(headers);
-    if (response_header_str != NULL) {
-        free(response_header_str);
-    }
+    sdsfree(response_header);
+
     if (e.tag != ERROR_NONE) {
         printf("%s\n", error_stringify(e, sizeof(error_strbuf), error_strbuf));
         return_status = EXIT_FAILURE;

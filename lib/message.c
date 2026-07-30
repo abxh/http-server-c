@@ -102,16 +102,8 @@ Error_t tokenize_header_(const ErrorInfo_t ei, const strview LINE, struct HTTPHe
     return NO_ERRORS;
 }
 
-Error_t assemble_response_header_(
-    const ErrorInfo_t ei,
-    void *allocator_context,
-    void *(*allocate)(void *context, size_t alignment, size_t size),
-    struct StatusLine status,
-    const strtable *headers,
-    size_t *out_buf_len,
-    char **out_buf)
+Error_t assemble_response_header_(const ErrorInfo_t ei, struct StatusLine status, const strtable *headers, sds *out_buf)
 {
-    RETURN_IF_NULL(ei, allocate);
     RETURN_IF_NULL(ei, headers);
     RETURN_IF_NULL(ei, out_buf);
 
@@ -129,6 +121,10 @@ Error_t assemble_response_header_(
     /*
          HTTP-Version   = "HTTP" "/" 1*DIGIT "." 1*DIGIT
     */
+    if (status.http_version.size != 3) {
+        return error_format_location(
+            ei, (Error_t){.tag = ERROR_CUSTOM, .custom_msg = "http-version must be three characters."});
+    }
     bool a1 = isdigit(status.http_version.buf[0]);
     bool a2 = status.http_version.buf[1] == '.';
     bool a3 = isdigit(status.http_version.buf[2]);
@@ -140,7 +136,6 @@ Error_t assemble_response_header_(
                 .custom_msg =
                     "http-version must be of the form <major>.<minor> with <major> and <minor> as single digits."});
     }
-
     bool b1 = isdigit(status.status_code.buf[0]);
     bool b2 = isdigit(status.status_code.buf[1]);
     bool b3 = isdigit(status.status_code.buf[2]);
@@ -149,45 +144,12 @@ Error_t assemble_response_header_(
             ei, (Error_t){.tag = ERROR_CUSTOM, .custom_msg = "status code must be a 3-digit integer"});
     }
 
-    size_t len = 0;
-    len += sizeof("HTTP/X.X XXX ") - 1;
-    len += (size_t)status.status_desc.size;
-    len += 2; // CLRS
-    {
-        struct strview key;
-        struct strview value;
+    *out_buf = sdsempty();
+    RETURN_IF_NULL(ei, *out_buf);
 
-        size_t idx;
-        FHASHTABLE_FOR_EACH(headers, idx, key, value)
-        {
-            len += (size_t)key.size;
-            len += 2; // ": "
-            len += (size_t)value.size;
-            len += 2; // CRLS
-        }
-    }
-    len += 2; // CRLS
-
-    *out_buf = (char *)allocate(
-        allocator_context, alignof(char), sizeof(char) * (len + 1)); // +1 for c str functions printing '\0'
-    *out_buf_len = len;
-
-    if (out_buf == NULL) {
-        return error_format_location(ei, (Error_t){.tag = ERROR_ERRNO, .errno_num = 12}); // OOM errno
-    }
-
-    size_t buf_idx = 0;
-    snprintf(
-        &(*out_buf)[buf_idx],
-        len,
-        "HTTP/%2s %3s %s\r\n",
-        status.http_version.buf,
-        status.status_code.buf,
-        status.status_desc.buf);
-
-    buf_idx += sizeof("HTTP/X.X XXX ") - 1;
-    buf_idx += (size_t)status.status_desc.size;
-    buf_idx += 2; // CLRS
+    *out_buf = sdscatprintf(
+        *out_buf, "HTTP/%2s %3s %s\r\n", status.http_version.buf, status.status_code.buf, status.status_desc.buf);
+    RETURN_IF_NULL(ei, *out_buf);
 
     {
         struct strview key;
@@ -196,16 +158,13 @@ Error_t assemble_response_header_(
         size_t idx;
         FHASHTABLE_FOR_EACH(headers, idx, key, value)
         {
-            snprintf(&(*out_buf)[buf_idx], len, "%s: %s\r\n", key.buf, value.buf);
-
-            buf_idx += (size_t)key.size;
-            buf_idx += 2; // ": "
-            buf_idx += (size_t)value.size;
-            buf_idx += 2; // CRLS
+            *out_buf = sdscatprintf(*out_buf, "%s: %s\r\n", key.buf, value.buf);
+            RETURN_IF_NULL(ei, *out_buf);
         }
     }
 
-    snprintf(&(*out_buf)[buf_idx], len, "\r\n");
+    *out_buf = sdscat(*out_buf, "\r\n");
+    RETURN_IF_NULL(ei, *out_buf);
 
     return NO_ERRORS;
 }

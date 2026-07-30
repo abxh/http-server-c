@@ -29,14 +29,13 @@ Error_t send_file_entity(const int conn_fd, const char *content_type, const char
         .status_desc = strview_from_cstr("OK"),
     };
 
-    size_t out_buf_len = 0;
-    char *out_buf = NULL;
+    sds out_buf = NULL;
     Error_t e = NO_ERRORS;
 
-    e = assemble_response_header(status, headers, &out_buf_len, &out_buf);
+    e = assemble_response_header(status, headers, &out_buf);
     if (e.tag != ERROR_NONE) goto cleanup1;
 
-    e = bytes_sendall(conn_fd, out_buf_len, out_buf);
+    e = bytes_sendall(conn_fd, sdslen(out_buf), out_buf);
     if (e.tag != ERROR_NONE) goto cleanup1;
 
     e = bytes_sendfile(conn_fd, file_handle, 100 * (int)1e+6); // max file size
@@ -47,7 +46,7 @@ cleanup1:
         close(file_handle);
     }
     if (out_buf != NULL) {
-        free(out_buf);
+        sdsfree(out_buf);
     }
     if (headers != NULL) {
         strtable_destroy(headers);
@@ -203,7 +202,7 @@ Error_t handle_client(const int conn_fd, struct ClientHandler *handler)
             break;
         }
 
-        e = tokenize_header(strview_from_sized((uint8_t *)request_line_buf, request_line_len), &header);
+        e = tokenize_header(strview_from_sized((uint8_t *)linebuf, line_len), &header);
         if (e.tag != ERROR_NONE) goto on_error;
     } while (true);
 
@@ -263,6 +262,7 @@ int main(int argc, char *argv[])
         if (handle_client_error.tag != ERROR_NONE) {
             printf("%s\n", error_stringify(handle_client_error, sizeof(error_strbuf), error_strbuf));
             close_socket(conn_fd);
+            conn_fd = -1;
             continue;
         }
 
