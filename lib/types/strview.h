@@ -57,7 +57,7 @@ static inline struct strview strview_take(const strview s, const size_t n)
     return (struct strview){.size = n <= s.size ? n : s.size, .buf = s.buf};
 }
 
-bool strview_find_first_char(const struct strview s, const char c, struct strview *out);
+bool strview_find_firstc(const struct strview s, const uint8_t c, struct strview *out);
 
 bool strview_find_first(const struct strview s, const struct strview occurrence, struct strview *out);
 

@@ -4,7 +4,7 @@ project(http-server-c)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 if (PROJECT_IS_TOP_LEVEL)
-    add_compile_options(-Wall -Wextra -pedantic -ggdb3 -Wmaybe-uninitialized -std=gnu23)
+    add_compile_options(-Wall -Wextra -pedantic -ggdb3 -Wmaybe-uninitialized -Wshadow -Wconversion -std=gnu23)
 
     add_compile_options(-fsanitize=address -fsanitize=undefined)
     add_link_options(-fsanitize=address -fsanitize=undefined)

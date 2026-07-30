@@ -21,19 +21,19 @@ Error_t tokenize_request_line_(const ErrorInfo_t ei, const strview LINE, struct 
             Request-Line   = Method SP Request-URI SP HTTP-Version CRLF
     */
     strview SP1 = STRVIEW_EMPTY;
-    if (!strview_find_first_char(LINE, ' ', &SP1)) {
+    if (!strview_find_firstc(LINE, ' ', &SP1)) {
         return error_format_location(
             ei, (Error_t){.tag = ERROR_CUSTOM, .custom_msg = "missing first space delimiter in Request-Line"});
     }
 
     strview SP2 = STRVIEW_EMPTY;
-    if (!strview_find_first_char(strview_drop(SP1, 1), ' ', &SP2)) {
+    if (!strview_find_firstc(strview_drop(SP1, 1), ' ', &SP2)) {
         return error_format_location(
             ei, (Error_t){.tag = ERROR_CUSTOM, .custom_msg = "missing second space delimiter in Request-Line"});
     }
 
     strview SLASH = STRVIEW_EMPTY;
-    if (!strview_find_first_char(SP2, '/', &SLASH)) {
+    if (!strview_find_firstc(SP2, '/', &SLASH)) {
         return error_format_location(
             ei, (Error_t){.tag = ERROR_CUSTOM, .custom_msg = "missing protocol name-version / delimiter"});
     }
@@ -82,7 +82,7 @@ Error_t tokenize_header_(const ErrorInfo_t ei, const strview LINE, struct HTTPHe
                                 of token, separators, and quoted-string>
     */
     strview COLON = STRVIEW_EMPTY;
-    if (!strview_find_first_char(LINE, ':', &COLON)) {
+    if (!strview_find_firstc(LINE, ':', &COLON)) {
         return error_format_location(
             ei, (Error_t){.tag = ERROR_CUSTOM, .custom_msg = "missing `:` delimiter in header"});
     }
