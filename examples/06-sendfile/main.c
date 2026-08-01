@@ -11,22 +11,58 @@
 
 #include "sds/sds.h"
 
+struct Route {
+    strview url_path;
+    strview local_path;
+};
+
+struct RouteWithMetadata {
+    struct Route route;
+    sds abs_path;
+    strview content_type;
+    sds content_length_str;
+};
+
+static const struct Route routes[] = {
+    {
+        .url_path = STRVIEW("/"),
+        .local_path = STRVIEW("/index.html"),
+    },
+    {
+        .url_path = STRVIEW("/index.html"),
+        .local_path = STRVIEW("/index.html"),
+    },
+    {
+        .url_path = STRVIEW("/images/cat.jpg"),
+        .local_path = STRVIEW("/images/cat.jpg"),
+    },
+    {
+        .url_path = STRVIEW("/cat"),
+        .local_path = STRVIEW("/images/cat.jpg"),
+    },
+};
+
+static const char RESPONSE_403_BAD_REQUEST[] = "HTTP/1.0 403 Bad Request\r\n"
+                                               "Content-Type: text/plain\r\n"
+                                               "Content-Length: 15\r\n"
+                                               "\r\n"
+                                               "403 Bad Request";
+
 Error_t send_file_entity(const int conn_fd, const char *content_type, const char *content_length, const char *filepath)
 {
     int file_handle = open(filepath, O_RDONLY);
     if (file_handle < 0) {
-        return error_format_location(
-            ERROR_INFO("open_file_and_get_file_size"), (Error_t){.tag = ERROR_ERRNO, .errno_num = errno});
+        return error_format_location(ERROR_INFO(__func__), (Error_t){.tag = ERROR_ERRNO, .errno_num = errno});
     }
 
     struct strtable *headers = strtable_create(2);
-    strtable_update(headers, strview_from_cstr("Content-Type"), strview_from_cstr(content_type));
-    strtable_update(headers, strview_from_cstr("Content-Length"), strview_from_cstr(content_length));
+    strtable_update(headers, STRVIEW_FROM("Content-Type"), strview_from_cstr(content_type));
+    strtable_update(headers, STRVIEW_FROM("Content-Length"), strview_from_cstr(content_length));
 
     const struct StatusLine status = {
-        .http_version = strview_from_cstr("1.0"),
-        .status_code = strview_from_cstr("200"),
-        .status_desc = strview_from_cstr("OK"),
+        .http_version = STRVIEW("1.0"),
+        .status_code = STRVIEW("200"),
+        .status_desc = STRVIEW("OK"),
     };
 
     sds out_buf = NULL;
@@ -38,7 +74,7 @@ Error_t send_file_entity(const int conn_fd, const char *content_type, const char
     e = bytes_sendall(conn_fd, sdslen(out_buf), out_buf);
     if (e.tag != ERROR_NONE) goto cleanup1;
 
-    e = bytes_sendfile(conn_fd, file_handle, 100 * (int)1e+6); // max file size
+    e = bytes_sendfile(conn_fd, file_handle, 100 * (int)1e+6); // last parameter: max file size
     if (e.tag != ERROR_NONE) goto cleanup1;
 
 cleanup1:
@@ -54,19 +90,13 @@ cleanup1:
     return e;
 }
 
-struct Route {
-    sds filepath;
-    strview content_type;
-    sds content_length;
-};
-
 #include <data-structures-c/fhashtable/fnvhash.h>
 
 #define NAME               routes_htable
 #define KEY_TYPE           strview
-#define VALUE_TYPE         struct Route
+#define VALUE_TYPE         struct RouteWithMetadata
 #define KEY_IS_EQUAL(a, b) (strview_equals((a), (b)))
-#define HASH_FUNCTION(key) (fnvhash_32((uint8_t *)(key).buf, (size_t)(key).size))
+#define HASH_FUNCTION(key) (fnvhash_32((uint8_t *)(key).buf, (size_t)(key).length))
 #define TYPE_DEFINITIONS
 #define FUNCTION_DEFINITIONS
 #define FUNCTION_LINKAGE static inline
@@ -76,27 +106,33 @@ struct ClientHandler {
     struct routes_htable *routes;
 };
 
-static const char RESPONSE_403_BAD_REQUEST[] = "HTTP/1.0 403 Bad Request\r\n"
-                                               "Content-Type: text/plain\r\n"
-                                               "Content-Length: 15\r\n"
-                                               "\r\n"
-                                               "403 Bad Request";
+strview deduce_content_type(const strview filepath)
+{
+    strview extension = STRVIEW_EMPTY;
+    if (!strview_find_lastc(filepath, '.', &extension)) {
+        return STRVIEW_FROM("application/octet-stream");
+    }
+    if (strview_equals(extension, STRVIEW_FROM(".html"))) {
+        return STRVIEW_FROM("text/html");
+    }
+    if (strview_equals(extension, STRVIEW_FROM(".jpg")) || strview_equals(extension, STRVIEW_FROM(".jpeg"))) {
+        return STRVIEW_FROM("image/jpeg");
+    }
+    return STRVIEW_FROM("application/octet-stream");
+}
 
 Error_t open_file_and_get_file_size(const char *filepath, sds *out_file_size_str)
 {
     FILE *fp = fopen(filepath, "r");
     if (fp == NULL) {
-        return error_format_location(
-            ERROR_INFO("open_file_and_get_file_size"), (Error_t){.tag = ERROR_ERRNO, .errno_num = errno});
+        return error_format_location(ERROR_INFO(__func__), (Error_t){.tag = ERROR_ERRNO, .errno_num = errno});
     }
     if (fseek(fp, 0L, SEEK_END) != 0) {
-        return error_format_location(
-            ERROR_INFO("open_file_and_get_file_size"), (Error_t){.tag = ERROR_ERRNO, .errno_num = errno});
+        return error_format_location(ERROR_INFO(__func__), (Error_t){.tag = ERROR_ERRNO, .errno_num = errno});
     }
     const ssize_t size = ftell(fp);
     if (size == -1) {
-        return error_format_location(
-            ERROR_INFO("open_file_and_get_file_size"), (Error_t){.tag = ERROR_ERRNO, .errno_num = errno});
+        return error_format_location(ERROR_INFO(__func__), (Error_t){.tag = ERROR_ERRNO, .errno_num = errno});
     }
     *out_file_size_str = sdsfromlonglong(size);
     return NO_ERRORS;
@@ -104,38 +140,32 @@ Error_t open_file_and_get_file_size(const char *filepath, sds *out_file_size_str
 
 Error_t init_client_handler(struct ClientHandler *handler, const char *rootpath)
 {
-    handler->routes = routes_htable_create(64);
+    handler->routes = routes_htable_create(sizeof(routes) / sizeof(*routes));
     if (!handler->routes) {
-        return error_format_location(
-            ERROR_INFO("init_response_handler"), (Error_t){.tag = ERROR_ERRNO, .errno_num = errno});
+        return error_format_location(ERROR_INFO(__func__), (Error_t){.tag = ERROR_ERRNO, .errno_num = errno});
     }
-    struct Route r = {0};
     Error_t e = NO_ERRORS;
 
-    r = (struct Route){0};
-    r.filepath = sdsnew(rootpath);
-    r.filepath = sdscatfmt(r.filepath, "/index.html");
-    r.content_type = strview_from_cstr("text/html");
-    e = open_file_and_get_file_size(r.filepath, &r.content_length);
-    if (e.tag != ERROR_NONE) return e;
-    routes_htable_update(handler->routes, strview_from_cstr("/"), r);
+    for (size_t i = 0; i < sizeof(routes) / sizeof(*routes); i++) {
+        const struct Route r = routes[i];
+        struct RouteWithMetadata rm;
+        rm.route = r;
 
-    r.filepath = sdsnew(r.filepath);
-    r.content_length = sdsnew(r.content_length);
-    routes_htable_update(handler->routes, strview_from_cstr("/index.html"), r);
+        rm.abs_path = sdsnew(rootpath);
+        CHECK_IF_NULL(ERROR_INFO(__func__), e, rm.abs_path);
+        if (e.tag != ERROR_NONE) break;
 
-    r = (struct Route){0};
-    r.filepath = sdsnew(rootpath);
-    r.filepath = sdscatfmt(r.filepath, "/images/cat.jpg");
-    r.content_type = strview_from_cstr("image/jpeg");
-    e = open_file_and_get_file_size(r.filepath, &r.content_length);
-    if (e.tag != ERROR_NONE) return e;
-    routes_htable_update(handler->routes, strview_from_cstr("/images/cat.jpg"), r);
+        rm.abs_path = sdscatfmt(rm.abs_path, sdsnewlen(rm.route.local_path.buf, rm.route.local_path.length));
+        CHECK_IF_NULL(ERROR_INFO(__func__), e, rm.abs_path);
+        if (e.tag != ERROR_NONE) break;
 
-    r.filepath = sdsnew(r.filepath);
-    r.content_length = sdsnew(r.content_length);
-    routes_htable_update(handler->routes, strview_from_cstr("/epic-cat"), r);
+        rm.content_type = deduce_content_type(strview_from_sized((const uint8_t *)rm.abs_path, sdslen(rm.abs_path)));
 
+        e = open_file_and_get_file_size(rm.abs_path, &rm.content_length_str);
+        if (e.tag != ERROR_NONE) break;
+
+        routes_htable_update(handler->routes, r.url_path, rm);
+    }
     return e;
 }
 
@@ -143,13 +173,12 @@ void destroy_client_handler(struct ClientHandler *handler)
 {
     {
         strview key;
-        struct Route value;
+        struct RouteWithMetadata value;
         size_t idx;
-        (void)(key);
         FHASHTABLE_FOR_EACH(handler->routes, idx, key, value)
         {
-            sdsfree(value.content_length);
-            sdsfree(value.filepath);
+            (void)(key);
+            sdsfree(value.content_length_str);
         }
     }
     routes_htable_destroy(handler->routes);
@@ -191,14 +220,15 @@ Error_t handle_client(const int conn_fd, struct ClientHandler *handler)
     //     }
     // }
 
-    struct HTTPHeader header = {0}; // do no validation / processing of the headers.
+    // do no validation / processing of the headers:
+    struct HTTPHeader header = {0};
     do {
         char linebuf[1024] = {0};
         size_t line_len = 0;
         e = bytes_recvline(&reader, sizeof(linebuf), linebuf, &line_len);
         if (e.tag != ERROR_NONE) goto on_error;
 
-        if (line_len <= 2) {
+        if (line_len == 0 || strncmp(linebuf, "\r\n", line_len)) {
             break;
         }
 
@@ -206,10 +236,11 @@ Error_t handle_client(const int conn_fd, struct ClientHandler *handler)
         if (e.tag != ERROR_NONE) goto on_error;
     } while (true);
 
-    if (routes_htable_contains_key(handler->routes, request_line.url)) // no special processing
-    {
-        const struct Route route = *routes_htable_get_value_mut(handler->routes, request_line.url);
-        return send_file_entity(conn_fd, (const char *)route.content_type.buf, route.content_length, route.filepath);
+    // no special processing:
+    struct RouteWithMetadata *route = routes_htable_get_value_mut(handler->routes, request_line.url);
+    if (route) {
+        return send_file_entity(
+            conn_fd, (const char *)route->content_type.buf, route->content_length_str, route->abs_path);
     }
     else {
         e.tag = ERROR_CUSTOM;

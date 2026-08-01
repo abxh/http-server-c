@@ -39,7 +39,7 @@ Error_t tokenize_request_line_(const ErrorInfo_t ei, const strview LINE, struct 
     }
 
     strview CLRS = STRVIEW_EMPTY;
-    if (!strview_find_first(strview_drop(SLASH, 1), strview_from_cstr("\r\n"), &CLRS)) {
+    if (!strview_find_first(strview_drop(SLASH, 1), STRVIEW_FROM("\r\n"), &CLRS)) {
         return error_format_location(
             ei, (Error_t){.tag = ERROR_CUSTOM, .custom_msg = "missing CLRS delimiter for Request-Line"});
     }
@@ -89,7 +89,7 @@ Error_t tokenize_header_(const ErrorInfo_t ei, const strview LINE, struct HTTPHe
 
     strview FIELD_VALUE = strview_trim_left(COLON);
     strview CLRS = STRVIEW_EMPTY;
-    if (!strview_find_first(strview_drop(FIELD_VALUE, 1), strview_from_cstr("\r\n"), &CLRS)) {
+    if (!strview_find_first(strview_drop(FIELD_VALUE, 1), STRVIEW_FROM("\r\n"), &CLRS)) {
         return error_format_location(
             ei, (Error_t){.tag = ERROR_CUSTOM, .custom_msg = "missing CLRS delimiter for header"});
     }
@@ -121,14 +121,14 @@ Error_t assemble_response_header_(const ErrorInfo_t ei, struct StatusLine status
     /*
          HTTP-Version   = "HTTP" "/" 1*DIGIT "." 1*DIGIT
     */
-    if (status.http_version.size != 3) {
+    if (status.http_version.length != 3) {
         return error_format_location(
             ei, (Error_t){.tag = ERROR_CUSTOM, .custom_msg = "http-version must be three characters."});
     }
     bool a1 = isdigit(status.http_version.buf[0]);
     bool a2 = status.http_version.buf[1] == '.';
     bool a3 = isdigit(status.http_version.buf[2]);
-    if (status.http_version.size != 3 || !a1 || !a2 || !a3) {
+    if (status.http_version.length != 3 || !a1 || !a2 || !a3) {
         return error_format_location(
             ei,
             (Error_t){
@@ -139,7 +139,7 @@ Error_t assemble_response_header_(const ErrorInfo_t ei, struct StatusLine status
     bool b1 = isdigit(status.status_code.buf[0]);
     bool b2 = isdigit(status.status_code.buf[1]);
     bool b3 = isdigit(status.status_code.buf[2]);
-    if (status.status_code.size != 3 || !b1 || !b2 || !b3) {
+    if (status.status_code.length != 3 || !b1 || !b2 || !b3) {
         return error_format_location(
             ei, (Error_t){.tag = ERROR_CUSTOM, .custom_msg = "status code must be a 3-digit integer"});
     }
