@@ -128,13 +128,18 @@ Error_t open_file_and_get_file_size(const char *filepath, sds *out_file_size_str
         return error_format_location(ERROR_INFO(__func__), (Error_t){.tag = ERROR_ERRNO, .errno_num = errno});
     }
     if (fseek(fp, 0L, SEEK_END) != 0) {
+        fclose(fp);
         return error_format_location(ERROR_INFO(__func__), (Error_t){.tag = ERROR_ERRNO, .errno_num = errno});
     }
     const ssize_t size = ftell(fp);
     if (size == -1) {
+        fclose(fp);
         return error_format_location(ERROR_INFO(__func__), (Error_t){.tag = ERROR_ERRNO, .errno_num = errno});
     }
     *out_file_size_str = sdsfromlonglong(size);
+    if (fclose(fp) == -1) {
+        return error_format_location(ERROR_INFO(__func__), (Error_t){.tag = ERROR_ERRNO, .errno_num = errno});
+    }
     return NO_ERRORS;
 }
 
