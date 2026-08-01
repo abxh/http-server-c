@@ -68,7 +68,7 @@ Error_t send_file_entity(const int conn_fd, const char *content_type, const char
     sds out_buf = NULL;
     Error_t e = NO_ERRORS;
 
-    e = assemble_response_header(status, headers, &out_buf);
+    e = assemble_header(status, headers, &out_buf);
     if (e.tag != ERROR_NONE) goto cleanup1;
 
     e = bytes_sendall(conn_fd, sdslen(out_buf), out_buf);

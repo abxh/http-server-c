@@ -94,7 +94,7 @@ int main(int argc, char *argv[])
             .status_code = STRVIEW("200"),
             .status_desc = STRVIEW("OK"),
         };
-        e = assemble_response_header(status, headers, &response_header);
+        e = assemble_header(status, headers, &response_header);
         if (e.tag != ERROR_NONE) goto on_error;
 
         e = bytes_sendall(conn_fd, sdslen(response_header), response_header);

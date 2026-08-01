@@ -102,7 +102,7 @@ Error_t tokenize_header_(const ErrorInfo_t ei, const strview LINE, struct HTTPHe
     return NO_ERRORS;
 }
 
-Error_t assemble_response_header_(const ErrorInfo_t ei, struct StatusLine status, const strtable *headers, sds *out_buf)
+Error_t assemble_header_(const ErrorInfo_t ei, struct StatusLine status, const strtable *headers, sds *out_buf)
 {
     RETURN_IF_NULL(ei, headers);
     RETURN_IF_NULL(ei, out_buf);
