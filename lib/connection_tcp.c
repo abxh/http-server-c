@@ -2,8 +2,8 @@
 #include "address.h"
 #include "connection.h"
 
-#include <assert.h>
 #include <errno.h>
+#include <assert.h>
 #include <netdb.h>
 #include <string.h>
 #include <sys/sendfile.h>
@@ -139,7 +139,8 @@ bytes_sendall_(const ErrorInfo_t ei, const int flags, const int conn_fd, const s
                 return error_format_location(ei, (Error_t){.tag = ERROR_ERRNO, .errno_num = errno});
             }
             else {
-                assert(false);
+                return error_format_location(
+                    ei, (Error_t){.tag = ERROR_CUSTOM, .custom_msg = "unexpected branch taken"});
             }
         }
         nleft -= (size_t)retval;
@@ -186,7 +187,10 @@ static Error_t bytes_recv_unbuffered_(
     char *out_msgbuf,
     size_t *out_nbytes)
 {
-    assert(max_msg_len != 0);
+    if (max_msg_len == 0) {
+        return error_format_location(
+            ei, (Error_t){.tag = ERROR_CUSTOM, .custom_msg = "max message length is zero!"});
+    }
 
     char *ptr = out_msgbuf;
     do {
@@ -201,7 +205,8 @@ static Error_t bytes_recv_unbuffered_(
                 return error_format_location(ei, (Error_t){.tag = ERROR_ERRNO, .errno_num = errno});
             }
             else {
-                assert(false);
+                return error_format_location(
+                    ei, (Error_t){.tag = ERROR_CUSTOM, .custom_msg = "unexpected branch taken"});
             }
         }
         *out_nbytes = (size_t)retval;
@@ -215,8 +220,10 @@ static Error_t bytes_recv_unbuffered_(
 static Error_t bytes_recv_buffered(
     const ErrorInfo_t ei, struct BufferedReader *reader, const size_t nrequested, char *out_buf, size_t *out_nread)
 {
-    assert(nrequested != 0);
-
+    if (nrequested == 0) {
+        return error_format_location(
+            ei, (Error_t){.tag = ERROR_CUSTOM, .custom_msg = "requested zero bytes of the buffered reader!"});
+    }
     const bool should_flush = reader->nleft == 0;
     if (should_flush) {
         reader->curr = &reader->msgbuf[0];
