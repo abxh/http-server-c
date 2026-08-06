@@ -71,11 +71,3 @@ static inline Error_t error_format_location(const ErrorInfo_t ei, Error_t error)
                 (ei), error_format_null_param_name((Error_t){.tag = ERROR_NULL_PARAM}, #param)); \
         }                                                                                        \
     } while (0)
-
-#define CHECK_IF_NULL(ei, e, param)                                                                                    \
-    do {                                                                                                               \
-        if ((param) == NULL) {                                                                                         \
-            (e) =                                                                                                      \
-                error_format_location((ei), error_format_null_param_name((Error_t){.tag = ERROR_NULL_PARAM}, #param)); \
-        }                                                                                                              \
-    } while (0)

@@ -8,4 +8,4 @@
 #define TYPE_DEFINITIONS
 #include <data-structures-c/fhashtable/fhashtable_template.h>
 
-typedef struct strtable strtable;
+typedef struct strtable strtable_t;

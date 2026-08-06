@@ -1,11 +1,11 @@
 file(GLOB LIB
     "*.c"
-    "types/*.c"
+    "types/strview.c"
+    "types/strtable.c"
+    "types/strdyn.c"
 )
 
 add_library(lib ${LIB})
-
-target_link_libraries(lib PUBLIC sds)
 
 target_include_directories(lib PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}

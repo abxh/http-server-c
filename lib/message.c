@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include <string.h>
 
-Error_t tokenize_request_line_(const ErrorInfo_t ei, const strview LINE, struct RequestLine *out)
+Error_t tokenize_request_line_(const ErrorInfo_t ei, const strview_t LINE, struct RequestLine *out)
 {
     RETURN_IF_NULL(ei, out);
 
@@ -20,25 +20,25 @@ Error_t tokenize_request_line_(const ErrorInfo_t ei, const strview LINE, struct 
 
             Request-Line   = Method SP Request-URI SP HTTP-Version CRLF
     */
-    strview SP1 = STRVIEW_EMPTY;
+    strview_t SP1 = STRVIEW_EMPTY;
     if (!strview_find_firstc(LINE, ' ', &SP1)) {
         return error_format_location(
             ei, (Error_t){.tag = ERROR_CUSTOM, .custom_msg = "missing first space delimiter in Request-Line"});
     }
 
-    strview SP2 = STRVIEW_EMPTY;
+    strview_t SP2 = STRVIEW_EMPTY;
     if (!strview_find_firstc(strview_drop(SP1, 1), ' ', &SP2)) {
         return error_format_location(
             ei, (Error_t){.tag = ERROR_CUSTOM, .custom_msg = "missing second space delimiter in Request-Line"});
     }
 
-    strview SLASH = STRVIEW_EMPTY;
+    strview_t SLASH = STRVIEW_EMPTY;
     if (!strview_find_firstc(SP2, '/', &SLASH)) {
         return error_format_location(
             ei, (Error_t){.tag = ERROR_CUSTOM, .custom_msg = "missing protocol name-version / delimiter"});
     }
 
-    strview CLRS = STRVIEW_EMPTY;
+    strview_t CLRS = STRVIEW_EMPTY;
     if (!strview_find_first(strview_drop(SLASH, 1), STRVIEW_FROM("\r\n"), &CLRS)) {
         return error_format_location(
             ei, (Error_t){.tag = ERROR_CUSTOM, .custom_msg = "missing CLRS delimiter for Request-Line"});
@@ -54,7 +54,7 @@ Error_t tokenize_request_line_(const ErrorInfo_t ei, const strview LINE, struct 
     return NO_ERRORS;
 }
 
-Error_t tokenize_header_(const ErrorInfo_t ei, const strview LINE, struct HTTPHeader *out)
+Error_t tokenize_header_(const ErrorInfo_t ei, const strview_t LINE, struct HTTPHeader *out)
 {
     RETURN_IF_NULL(ei, out);
 
@@ -81,14 +81,14 @@ Error_t tokenize_header_(const ErrorInfo_t ei, const strview LINE, struct HTTPHe
                                 and consisting of either *TEXT or combinations
                                 of token, separators, and quoted-string>
     */
-    strview COLON = STRVIEW_EMPTY;
+    strview_t COLON = STRVIEW_EMPTY;
     if (!strview_find_firstc(LINE, ':', &COLON)) {
         return error_format_location(
             ei, (Error_t){.tag = ERROR_CUSTOM, .custom_msg = "missing `:` delimiter in header"});
     }
 
-    strview FIELD_VALUE = strview_trim_left(COLON);
-    strview CLRS = STRVIEW_EMPTY;
+    strview_t FIELD_VALUE = strview_trim_left(COLON);
+    strview_t CLRS = STRVIEW_EMPTY;
     if (!strview_find_first(strview_drop(FIELD_VALUE, 1), STRVIEW_FROM("\r\n"), &CLRS)) {
         return error_format_location(
             ei, (Error_t){.tag = ERROR_CUSTOM, .custom_msg = "missing CLRS delimiter for header"});
@@ -102,7 +102,7 @@ Error_t tokenize_header_(const ErrorInfo_t ei, const strview LINE, struct HTTPHe
     return NO_ERRORS;
 }
 
-Error_t assemble_header_(const ErrorInfo_t ei, struct StatusLine status, const strtable *headers, sds *out_buf)
+Error_t assemble_header_(const ErrorInfo_t ei, struct StatusLine status, const strtable_t *headers, strdyn_t *out_buf)
 {
     RETURN_IF_NULL(ei, headers);
     RETURN_IF_NULL(ei, out_buf);
@@ -144,27 +144,30 @@ Error_t assemble_header_(const ErrorInfo_t ei, struct StatusLine status, const s
             ei, (Error_t){.tag = ERROR_CUSTOM, .custom_msg = "status code must be a 3-digit integer"});
     }
 
-    *out_buf = sdsempty();
-    RETURN_IF_NULL(ei, *out_buf);
+    Error_t error = NO_ERRORS;
+    do {
+        error = strdyn_empty(out_buf);
+        if (error.tag != ERROR_NONE) break;
 
-    *out_buf = sdscatprintf(
-        *out_buf, "HTTP/%2s %3s %s\r\n", status.http_version.buf, status.status_code.buf, status.status_desc.buf);
-    RETURN_IF_NULL(ei, *out_buf);
+        error = strdyn_append_fmt(
+            out_buf, "HTTP/%2s %3s %s\r\n", status.http_version.buf, status.status_code.buf, status.status_desc.buf);
+        if (error.tag != ERROR_NONE) break;
 
-    {
-        struct strview key;
-        struct strview value;
-
-        size_t idx;
-        FHASHTABLE_FOR_EACH(headers, idx, key, value)
         {
-            *out_buf = sdscatprintf(*out_buf, "%s: %s\r\n", key.buf, value.buf);
-            RETURN_IF_NULL(ei, *out_buf);
+            struct strview key;
+            struct strview value;
+
+            size_t idx;
+            FHASHTABLE_FOR_EACH(headers, idx, key, value)
+            {
+                if (error.tag != ERROR_NONE) continue;
+                error = strdyn_append_fmt(out_buf, "%s: %s\r\n", key.buf, value.buf);
+            }
+            if (error.tag != ERROR_NONE) break;
         }
-    }
 
-    *out_buf = sdscat(*out_buf, "\r\n");
-    RETURN_IF_NULL(ei, *out_buf);
-
-    return NO_ERRORS;
+        error = strdyn_append(out_buf, "\r\n");
+        if (error.tag != ERROR_NONE) break;
+    } while (false);
+    return error;
 }

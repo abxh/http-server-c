@@ -25,18 +25,6 @@ if(NOT TARGET dsa)
     target_include_directories(dsa INTERFACE ${dsa_SOURCE_DIR})
 endif()
 
-FetchContent_Declare(
-    sds
-    GIT_REPOSITORY https://github.com/antirez/sds.git
-    GIT_TAG 2.0.0
-    SOURCE_DIR "${EXTERNAL_DIR}/sds"
-)
-FetchContent_MakeAvailable(sds)
-if(NOT TARGET sds)
-    add_library(sds ${sds_SOURCE_DIR}/sds.c)
-    target_include_directories(sds PUBLIC ${sds_SOURCE_DIR})
-endif()
-
 add_subdirectory(lib)
 
 

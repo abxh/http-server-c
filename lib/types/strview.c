@@ -5,7 +5,7 @@
 
 #include <ctype.h>
 
-bool strview_find_firstc(const struct strview s, const uint8_t c, struct strview *out)
+bool strview_find_firstc(const strview_t s, const uint8_t c, strview_t *out)
 {
     if (!out) {
         return false;
@@ -21,7 +21,7 @@ bool strview_find_firstc(const struct strview s, const uint8_t c, struct strview
     return true;
 }
 
-bool strview_find_first(const struct strview s, const struct strview occurrence, struct strview *out)
+bool strview_find_first(const strview_t s, const strview_t occurrence, strview_t *out)
 {
     if (!out || s.length < occurrence.length) {
         return false;
@@ -46,7 +46,7 @@ bool strview_find_first(const struct strview s, const struct strview occurrence,
     };
 }
 
-bool strview_find_lastc(const struct strview s, const uint8_t c, struct strview *out)
+bool strview_find_lastc(const strview_t s, const uint8_t c, strview_t *out)
 {
     if (!out) {
         return false;
@@ -62,7 +62,7 @@ bool strview_find_lastc(const struct strview s, const uint8_t c, struct strview 
     return false;
 }
 
-bool strview_find_last(const struct strview s, const struct strview occurrence, struct strview *out)
+bool strview_find_last(const strview_t s, const strview_t occurrence, strview_t *out)
 {
     if (!out || s.length < occurrence.length) {
         return false;
@@ -88,7 +88,7 @@ bool strview_find_last(const struct strview s, const struct strview occurrence, 
     }
 }
 
-struct strview strview_trim_left(const strview s)
+strview_t strview_trim_left(const strview_t s)
 {
     size_t i = 0;
     while (i < s.length && isspace(s.buf[i])) {
@@ -97,7 +97,7 @@ struct strview strview_trim_left(const strview s)
     return strview_drop(s, i);
 }
 
-struct strview strview_trim_right(const strview s)
+strview_t strview_trim_right(const strview_t s)
 {
     size_t i = 0;
     while (i < s.length && isspace(s.buf[s.length - 1 - i])) {
@@ -106,7 +106,7 @@ struct strview strview_trim_right(const strview s)
     return strview_take(s, s.length - i);
 }
 
-struct strview strview_trim(const strview s)
+strview_t strview_trim(const strview_t s)
 {
     return strview_trim_right(strview_trim_left(s));
 }

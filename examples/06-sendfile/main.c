@@ -9,18 +9,16 @@
 #include "connection_tcp.h"
 #include "message.h"
 
-#include "sds/sds.h"
-
 struct Route {
-    strview url_path;
-    strview local_path;
+    strview_t url_path;
+    strview_t local_path;
 };
 
 struct RouteWithMetadata {
     struct Route route;
-    sds abs_path;
-    strview content_type;
-    sds content_length_str;
+    strdyn_t abs_path;
+    strview_t content_type;
+    strdyn_t content_length_str;
 };
 
 static const struct Route routes[] = {
@@ -55,7 +53,7 @@ Error_t send_file_entity(const int conn_fd, const char *content_type, const char
         return error_format_location(ERROR_INFO(__func__), (Error_t){.tag = ERROR_ERRNO, .errno_num = errno});
     }
 
-    struct strtable *headers = strtable_create(2);
+    strtable_t *headers = strtable_create(2);
     strtable_update(headers, STRVIEW_FROM("Content-Type"), strview_from_cstr(content_type));
     strtable_update(headers, STRVIEW_FROM("Content-Length"), strview_from_cstr(content_length));
 
@@ -65,13 +63,13 @@ Error_t send_file_entity(const int conn_fd, const char *content_type, const char
         .status_desc = STRVIEW("OK"),
     };
 
-    sds out_buf = NULL;
+    strdyn_t out_buf = NULL;
     Error_t e = NO_ERRORS;
 
     e = assemble_header(status, headers, &out_buf);
     if (e.tag != ERROR_NONE) goto cleanup1;
 
-    e = bytes_sendall(conn_fd, sdslen(out_buf), out_buf);
+    e = bytes_sendall(conn_fd, strdyn_length(out_buf), out_buf);
     if (e.tag != ERROR_NONE) goto cleanup1;
 
     e = bytes_sendfile(conn_fd, file_handle, 100 * (int)1e+6); // last parameter: max file size
@@ -82,7 +80,7 @@ cleanup1:
         close(file_handle);
     }
     if (out_buf != NULL) {
-        sdsfree(out_buf);
+        strdyn_free(out_buf);
     }
     if (headers != NULL) {
         strtable_destroy(headers);
@@ -93,7 +91,7 @@ cleanup1:
 #include <data-structures-c/fhashtable/fnvhash.h>
 
 #define NAME               routes_htable
-#define KEY_TYPE           strview
+#define KEY_TYPE           strview_t
 #define VALUE_TYPE         struct RouteWithMetadata
 #define KEY_IS_EQUAL(a, b) (strview_equals((a), (b)))
 #define HASH_FUNCTION(key) (fnvhash_32((uint8_t *)(key).buf, (size_t)(key).length))
@@ -106,9 +104,9 @@ struct ClientHandler {
     struct routes_htable *routes;
 };
 
-strview deduce_content_type(const strview filepath)
+strview_t deduce_content_type(const strview_t filepath)
 {
-    strview extension = STRVIEW_EMPTY;
+    strview_t extension = STRVIEW_EMPTY;
     if (!strview_find_lastc(filepath, '.', &extension)) {
         return STRVIEW_FROM("application/octet-stream");
     }
@@ -121,7 +119,7 @@ strview deduce_content_type(const strview filepath)
     return STRVIEW_FROM("application/octet-stream");
 }
 
-Error_t open_file_and_get_file_size(const char *filepath, sds *out_file_size_str)
+Error_t open_file_and_get_file_size(const char *filepath, strdyn_t *out_file_size_str)
 {
     FILE *fp = fopen(filepath, "r");
     if (fp == NULL) {
@@ -136,7 +134,17 @@ Error_t open_file_and_get_file_size(const char *filepath, sds *out_file_size_str
         fclose(fp);
         return error_format_location(ERROR_INFO(__func__), (Error_t){.tag = ERROR_ERRNO, .errno_num = errno});
     }
-    *out_file_size_str = sdsfromlonglong(size);
+    Error_t e;
+    e = strdyn_empty(out_file_size_str);
+    if (e.tag != ERROR_NONE) {
+        fclose(fp);
+        return e;
+    }
+    e = strdyn_append_fmt(out_file_size_str, "%zu", size);
+    if (e.tag != ERROR_NONE) {
+        fclose(fp);
+        return e;
+    }
     if (fclose(fp) == -1) {
         return error_format_location(ERROR_INFO(__func__), (Error_t){.tag = ERROR_ERRNO, .errno_num = errno});
     }
@@ -156,15 +164,16 @@ Error_t init_client_handler(struct ClientHandler *handler, const char *rootpath)
         struct RouteWithMetadata rm;
         rm.route = r;
 
-        rm.abs_path = sdsnew(rootpath);
-        CHECK_IF_NULL(ERROR_INFO(__func__), e, rm.abs_path);
+        rm.abs_path = NULL;
+        e = strdyn_empty(&rm.abs_path);
+        if (e.tag != ERROR_NONE) break;
+        e = strdyn_append_fmt(&rm.abs_path, "%s", rootpath);
+        if (e.tag != ERROR_NONE) break;
+        e = strdyn_append_fmt(&rm.abs_path, "%s", rm.route.local_path.buf);
         if (e.tag != ERROR_NONE) break;
 
-        rm.abs_path = sdscatfmt(rm.abs_path, sdsnewlen(rm.route.local_path.buf, rm.route.local_path.length));
-        CHECK_IF_NULL(ERROR_INFO(__func__), e, rm.abs_path);
-        if (e.tag != ERROR_NONE) break;
-
-        rm.content_type = deduce_content_type(strview_from_sized((const uint8_t *)rm.abs_path, sdslen(rm.abs_path)));
+        const strview_t v = strview_from_sized((const uint8_t *)rm.abs_path, strdyn_length(rm.abs_path));
+        rm.content_type = deduce_content_type(v);
 
         e = open_file_and_get_file_size(rm.abs_path, &rm.content_length_str);
         if (e.tag != ERROR_NONE) break;
@@ -177,13 +186,13 @@ Error_t init_client_handler(struct ClientHandler *handler, const char *rootpath)
 void destroy_client_handler(struct ClientHandler *handler)
 {
     {
-        strview key;
+        strview_t key;
         struct RouteWithMetadata value;
         size_t idx;
         FHASHTABLE_FOR_EACH(handler->routes, idx, key, value)
         {
             (void)(key);
-            sdsfree(value.content_length_str);
+            strdyn_free(value.content_length_str);
         }
     }
     routes_htable_destroy(handler->routes);
