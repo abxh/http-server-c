@@ -178,14 +178,20 @@ Error_t init_client_handler(struct ClientHandler *handler, const char *rootpath)
         e = open_file_and_get_file_size(rm.abs_path, &rm.content_length_str);
         if (e.tag != ERROR_NONE) break;
 
-        routes_htable_update(handler->routes, r.url_path, rm);
+        if (!routes_htable_is_full(handler->routes)) {
+            routes_htable_update(handler->routes, r.url_path, rm);
+        }
+        else {
+            return error_format_location(
+                ERROR_INFO(__func__), (Error_t){.tag = ERROR_CUSTOM, .custom_msg = "routes table is full!"});
+        }
     }
     return e;
 }
 
 void destroy_client_handler(struct ClientHandler *handler)
 {
-    {
+    if (handler->routes) {
         strview_t key;
         struct RouteWithMetadata value;
         size_t idx;
@@ -242,7 +248,7 @@ Error_t handle_client(const int conn_fd, struct ClientHandler *handler)
         e = bytes_recvline(&reader, sizeof(linebuf), linebuf, &line_len);
         if (e.tag != ERROR_NONE) goto on_error;
 
-        if (line_len == 0 || strncmp(linebuf, "\r\n", line_len)) {
+        if (line_len == 0 || strncmp(linebuf, "\r\n", line_len) == 0) {
             break;
         }
 

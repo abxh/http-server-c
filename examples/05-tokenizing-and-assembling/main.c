@@ -80,7 +80,7 @@ int main(int argc, char *argv[])
             e = bytes_recvline(&reader, sizeof(linebuf), linebuf, &line_len);
             if (e.tag != ERROR_NONE) goto on_error;
 
-            if (line_len <= 2) {
+            if (line_len == 0 || strncmp(linebuf, "\r\n", line_len) == 0) {
                 break;
             }
 
