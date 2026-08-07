@@ -3,6 +3,7 @@
 
 #include "strview.h"
 
+#include <assert.h>
 #include <ctype.h>
 
 bool strview_find_firstc(const strview_t s, const uint8_t c, strview_t *out)
@@ -10,15 +11,13 @@ bool strview_find_firstc(const strview_t s, const uint8_t c, strview_t *out)
     if (!out) {
         return false;
     }
-
-    const uint8_t *ptr = memchr(s.buf, c, s.length);
-    if (!ptr) {
-        return false;
+    for (size_t i = 0; i < s.length; i++) {
+        if (s.buf[i] == c) {
+            *out = strview_drop(s, i);
+            return true;
+        }
     }
-
-    *out = strview_drop(s, (size_t)(ptr - s.buf));
-
-    return true;
+    return false;
 }
 
 bool strview_find_first(const strview_t s, const strview_t occurrence, strview_t *out)
@@ -26,18 +25,15 @@ bool strview_find_first(const strview_t s, const strview_t occurrence, strview_t
     if (!out || s.length < occurrence.length) {
         return false;
     }
-
     switch (occurrence.length) {
     case 0:
         *out = s;
         return true;
-
     case 1:
         return strview_find_firstc(s, occurrence.buf[0], out);
-
     default:
         for (size_t i = 0; i <= s.length - occurrence.length; i++) {
-            if (memcmp(s.buf + i, occurrence.buf, occurrence.length) == 0) {
+            if (memcmp(&s.buf[i], occurrence.buf, occurrence.length) == 0) {
                 *out = strview_drop(s, i);
                 return true;
             }
@@ -51,14 +47,12 @@ bool strview_find_lastc(const strview_t s, const uint8_t c, strview_t *out)
     if (!out) {
         return false;
     }
-
     for (size_t i = s.length; i > 0; i--) {
         if (s.buf[i - 1] == c) {
             *out = strview_drop(s, i - 1);
             return true;
         }
     }
-
     return false;
 }
 
@@ -67,19 +61,16 @@ bool strview_find_last(const strview_t s, const strview_t occurrence, strview_t 
     if (!out || s.length < occurrence.length) {
         return false;
     }
-
     switch (occurrence.length) {
     case 0:
         *out = s;
         return true;
-
     case 1:
         return strview_find_lastc(s, occurrence.buf[0], out);
-
     default:
         for (size_t i = s.length - occurrence.length + 1; i > 0; i--) {
             const size_t pos = i - 1;
-            if (memcmp(s.buf + pos, occurrence.buf, occurrence.length) == 0) {
+            if (memcmp(&s.buf[pos], occurrence.buf, occurrence.length) == 0) {
                 *out = strview_drop(s, pos);
                 return true;
             }

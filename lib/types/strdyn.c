@@ -44,6 +44,13 @@ size_t strdyn_length(const strdyn_t s)
     return c->length;
 }
 
+size_t strdyn_capacity(const strdyn_t s)
+{
+    if (s == NULL) return 0;
+    const strdyn_impl_t *c = container_of_strdyn_const(s);
+    return c->capacity;
+}
+
 void strdyn_clear(strdyn_t s)
 {
     assert(s != NULL);
@@ -72,6 +79,9 @@ Error_t strdyn_reserve_(const ErrorInfo_t ei, strdyn_t *out, const size_t len)
     }
     else {
         strdyn_impl_t *prev = container_of_strdyn(*out);
+        if (len < prev->capacity) {
+            return NO_ERRORS;
+        }
         const size_t prev_len = prev->length;
 
         strdyn_impl_t *next = realloc(prev, BUFFER_OFFSET + (len + 1) * sizeof(char));
@@ -94,7 +104,7 @@ Error_t strdyn_empty_(const ErrorInfo_t ei, strdyn_t *out)
     return strdyn_reserve_(ei, out, INITIAL_SIZE);
 }
 
-static Error_t strdyn_update_capacity(const ErrorInfo_t ei, strdyn_t *out, const size_t min_capacity)
+static Error_t strdyn_ensure_capacity(const ErrorInfo_t ei, strdyn_t *out, const size_t min_capacity)
 {
     strdyn_impl_t *c = container_of_strdyn(*out);
     if (c->capacity >= min_capacity) {
@@ -120,7 +130,7 @@ Error_t strdyn_append_len_(const ErrorInfo_t ei, strdyn_t *out, const char *suff
     }
     const size_t new_len = c->length + suffix_len;
 
-    const Error_t error = strdyn_update_capacity(ei, out, new_len);
+    const Error_t error = strdyn_ensure_capacity(ei, out, new_len);
     if (error.tag != ERROR_NONE) {
         return error;
     }
@@ -132,8 +142,6 @@ Error_t strdyn_append_len_(const ErrorInfo_t ei, strdyn_t *out, const char *suff
 
     return NO_ERRORS;
 }
-
-
 
 Error_t strdyn_append_(const ErrorInfo_t ei, strdyn_t *out, const char *suffix)
 {
@@ -165,7 +173,7 @@ Error_t strdyn_append_fmt_(const ErrorInfo_t ei, strdyn_t *out, const char *form
             error = error_format_location(ei, (Error_t){.tag = ERROR_CUSTOM, .custom_msg = "sum of sizes overflows"});
             break;
         }
-        else if ((error = strdyn_update_capacity(ei, out, c->length + (size_t)len + 1)).tag != ERROR_NONE) {
+        else if ((error = strdyn_ensure_capacity(ei, out, c->length + (size_t)len + 1)).tag != ERROR_NONE) {
             break;
         }
         c = container_of_strdyn(*out);
@@ -198,7 +206,7 @@ Error_t strdyn_append_fmt_len_(const ErrorInfo_t ei, strdyn_t *out, const size_t
         return error_format_location(ei, (Error_t){.tag = ERROR_CUSTOM, .custom_msg = "sum of sizes overflows"});
     }
 
-    const Error_t error = strdyn_update_capacity(ei, out, c->length + max_len);
+    const Error_t error = strdyn_ensure_capacity(ei, out, c->length + max_len);
     if (error.tag != ERROR_NONE) {
         return error;
     }

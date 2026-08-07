@@ -1,0 +1,10 @@
+.cat-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.cat {
+    width: 55vw;
+    min-width: 330px;
+}

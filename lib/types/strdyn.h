@@ -7,6 +7,7 @@ typedef char *strdyn_t;
 void strdyn_free(strdyn_t s);
 
 size_t strdyn_length(const strdyn_t s);
+size_t strdyn_capacity(const strdyn_t s);
 void strdyn_clear(strdyn_t s);
 
 Error_t strdyn_reserve_(const ErrorInfo_t ei, strdyn_t *out, const size_t len);
